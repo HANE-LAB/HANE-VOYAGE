@@ -15,7 +15,7 @@ import urlKobuta from './figures/kobuta.glb?url';
 
 /* =====================================================================
    HER AND KOBUTA AT HER BOW (2026-10-24)
-   Rigged models made outside (.internal/tools/voyage-assets), packed small by dev/figures.py and inlined in the page.
+   Rigged models made outside, packed small by a script kept in the development repo and inlined in the page.
    She wears the look of the day shown. The look shown and Kobuta are decoded first, the other looks in idle time.
    ===================================================================== */
 // Her three looks, switched as HANE switches its portraits: the new outfits were shown in streams from 22:00 JST on
@@ -126,7 +126,7 @@ function pose(f: Figure, a: Actor){
   if (f.greet){ f.greet.time = Math.max(0, Math.min(a.greetT, f.greet.getClip().duration - 1e-3)); f.greet.setEffectiveWeight(gw); }
   // The turn toward what they watch goes on top of the clips' pose, so each look bone first gets back the pose the clips
   // gave it last frame. The mixer writes a bone only when its value changed since the last update, and a bone that holds
-  // still in both moves has no track at all (dev/figures.py drops them); left alone, last frame's turn would pile up.
+  // still in both moves has no track at all (the packing script drops them); left alone, last frame's turn would pile up.
   // Until 2026-10-24 they went back to the rest pose instead: on any frame the clips held a head, neck or chest still,
   // the mixer did not write it, and that bone showed its rest pose for one frame, the head's "faint twitch" the user saw.
   for (const [bone, , base] of f.look) bone.quaternion.copy(base);

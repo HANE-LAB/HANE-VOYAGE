@@ -72,7 +72,7 @@ fwSlots[0].p.visible = true; renderer.compile(fwSlots[0].p, camera, scene); fwSl
 const fwQueue: { t: number, kind?: string }[] = []; const rfw = mulberry32(777);
 export const FW_T = [100, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
 // How many shells a day sends up, as the total goes from a to b: one per threshold crossed, and on a rise that counts
-// as 大事 (z = rise/√(the larger total) over 1, as 大事慢放 in src/main.ts) 1 + 1.5·log2 z: z 2 sends 3, z 4 sends 4,
+// as 大事 (z = rise/√(the larger total) over 1, as 逢潮缓行 in src/main.ts) 1 + 1.5·log2 z: z 2 sends 3, z 4 sends 4,
 // z 8 sends 6, and 2026-10-12 (3647 joining, z 56) the most, FW_DAY. Over the whole voyage that is about 110 shells on
 // 35 days; crossings alone were 10, none in 2023–2025.
 const FW_DAY = 8;

@@ -97,8 +97,8 @@ export function updateRise(dt: number, jump: boolean){
 // Both slots get the same layout: a gate moves from slot 0 to slot 1 when the next one starts to rise, and with a layout
 // of its own each slot redrew the gate's water from other seeds in that frame. Gates differ through their index
 // (uRiseI, riseFx.vert.glsl), which stays with the gate.
-// Where the water gathers and drips once the pour thins out, rather than all along the beams (2026-10-23 research, in
-// .internal/research/reports): which beam, then x and z in world units from the gate's centre. Every drop clears the
+// Where the water gathers and drips once the pour thins out, rather than all along the beams (from research done on
+// 2026-10-23): which beam, then x and z in world units from the gate's centre. Every drop clears the
 // beams and posts below it, and none falls within 2 units of the middle, where her mast and figure pass. Fourteen to a
 // gate, one side or the other at each place: with 22, too many drops were in the air at once.
 const DRIPS = [

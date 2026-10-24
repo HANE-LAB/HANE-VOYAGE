@@ -36,7 +36,7 @@ let t = T_END, tPrev = -1e9, playing = false, speedMul = 1, slowMo = true, lastD
 let seeked = true;
 const BASE = 16;
 const SPEEDS = [0.5, 1, 2, 4];
-// 大事慢放. How hard a day's change hits is |change|/√(the larger total): the geometric mean of the absolute and the
+// 逢潮缓行. How hard a day's change hits is |change|/√(the larger total): the geometric mean of the absolute and the
 // relative change, rises and falls alike, so 34 → 44 counts like 4000 → 4100. A day above SLOW_Z sets a peak slowdown
 // held through that day; before it playback eases down and after it eases back as L/(days away), which at a steady
 // rate is an exponential slowdown in real time (time constant L/16 s at 1×). Only the date decides it, so pausing and
@@ -56,7 +56,7 @@ function slowAt(t: number){
   return f;
 }
 const playBtn = $('play'), playText = $('playText'), slowBtn = $('slow'), speedBtn = $('speed'), viewBtn = $('view');
-// the settings show their name and, in a chip, what they are set to (index.html); 大事慢放 is a switch drawn from aria-pressed
+// the settings show their name and, in a chip, what they are set to (index.html); 逢潮缓行 is a switch drawn from aria-pressed
 const setValue = (b: HTMLElement, v: string) => { b.querySelector('.v')!.textContent = v; };
 // start: waiting at today, the first thing to press (src/style.css makes it glow); pause and resume pick the icon
 function playLabel(){
@@ -74,6 +74,20 @@ sheets.forEach(([btn, sheet]) => btn.addEventListener('click', () => {
   sheets.forEach(([b, s]) => { s.hidden = true; b.setAttribute('aria-expanded', 'false'); });
   sheet.hidden = !open; btn.setAttribute('aria-expanded', String(open));
 }));
+// 收起: the dock folds down to the play button (src/style.css); the camera follows through resize(). Kept per viewer in
+// localStorage, expanded until they fold it.
+const dock = $('dock'), dockBtn = $('dockToggle');
+function setDock(min: boolean){
+  dock.classList.toggle('min', min);
+  dockBtn.setAttribute('aria-expanded', String(!min));
+  dockBtn.querySelector('span')!.textContent = min ? '展开' : '收起';
+}
+try { setDock(localStorage.getItem('hane-voyage-dock') === 'min'); } catch(e){}
+dockBtn.addEventListener('click', () => {
+  const min = !dock.classList.contains('min');
+  setDock(min);
+  try { localStorage.setItem('hane-voyage-dock', min ? 'min' : 'full'); } catch(e){}
+});
 function setCinema(on: boolean){
   document.body.classList.toggle('cinema', on);
   // a ship picked before stays out of it: its tag is hidden there, and the camera flew to it when it came on board
@@ -251,7 +265,7 @@ let last = performance.now();
 function frame(now: number){
   const raw = (now - last)/1000, dt = Math.min(DT_MAX, raw); last = now; tick(dt);
   const big = slowAt(t), slow = slowMo ? big : 1;
-  // she and Kobuta wave as a big day's slowdown sets in, 大事慢放 or not
+  // she and Kobuta wave as a big day's slowdown sets in, 逢潮缓行 or not
   if (playing && big > 2 && bigWas <= 2) cueFigures();
   bigWas = big;
   if (playing && !scrubbing){

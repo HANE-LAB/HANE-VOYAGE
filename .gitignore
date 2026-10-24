@@ -1,10 +1,10 @@
-# 本机环境
+# 开发环境
 .venv/
 __pycache__/
 *.pyc
 .DS_Store
 
-# 只留在本机的密钥和个人设置
+# 密钥和个人设置，不进 Git
 config.local.toml
 CLAUDE.local.md
 
@@ -12,7 +12,7 @@ CLAUDE.local.md
 node_modules/
 dist/
 
-# 本机下载的原始数据和截图检查的输出
+# 下载的原始数据和截图检查的输出
 data/raw/
 data/**/*.tmp
 dev/.sandbox/

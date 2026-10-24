@@ -517,7 +517,7 @@ async function names(url) {
     await page.click('#findBtn');
     await page.fill('#findQ', '1234567890');
     await page.waitForFunction(() => !/正在/.test(document.getElementById('findNote').textContent), null, { polling: 100, timeout: 10000 });
-    check('按 UID 找船：在本机算出哈希再比对', /UID/.test(await page.textContent('#findNote')), JSON.stringify(await page.textContent('#findNote')));
+    check('按 UID 找船：在浏览器里算出哈希再比对', /UID/.test(await page.textContent('#findNote')), JSON.stringify(await page.textContent('#findNote')));
     await page.fill('#findQ', '猫');
     const n = await page.evaluate(() => document.querySelectorAll('#findList button').length);
     if (n) {
