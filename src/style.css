@@ -1,0 +1,322 @@
+/* Layout: full-bleed night sea in WebGL; readouts float over the sky; the voyage timeline is docked at the bottom; the reading guide opens as a side sheet; cinema mode hides all chrome behind 2.39:1 bars. One deliberate dark look: a lantern procession at sea, at night. */
+:root{
+  --night:#04060d;
+  --panel:rgba(6,9,18,.72);
+  --line:rgba(200,212,232,.14);
+  --moon:#e6e8ef;
+  --mute:#8d96aa;
+  --ember:#f4a650;
+  --vermilion:#d4553a;
+  --gold:#f2c98a;
+  --slate:#8aa6d4;
+  --frost:#b9d4ee;
+  --f-display:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-data:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--night);color:var(--moon);overflow:hidden}
+body{font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0}
+#sea{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#sea:active{cursor:grabbing}
+
+.hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
+  padding-top:calc(env(safe-area-inset-top,0px) + 16px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  pointer-events:none;text-shadow:0 1px 14px rgba(0,0,0,.85)}
+.brand{display:grid;gap:4px;min-width:0}
+.brand h1{margin:0;font-family:var(--f-display);font-weight:700;font-size:28px;letter-spacing:.24em;line-height:1.1;text-wrap:balance}
+.readout{display:grid;gap:8px;justify-items:end;min-width:0}
+.date{font-family:var(--f-data);font-weight:500;font-size:26px;letter-spacing:.06em;color:var(--ember);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(2,auto);gap:4px 16px;margin:0}
+.stats div{display:grid;gap:2px;justify-items:end}
+.stats dt{font-size:11px;color:var(--mute);letter-spacing:.04em}
+.stats dd{margin:0;font-family:var(--f-data);font-size:15px;font-variant-numeric:tabular-nums;color:var(--moon)}
+.stats dd.star{color:var(--frost)}
+
+/* the day's crew (layout A, chosen 2026-10-23): 大航海 is everyone on board that day; it splits into 陪伴至今 (on board
+   that day and still on board today, by rank) and 后来离开 (the nameless lights), and the 老船长 are counted inside
+   陪伴至今, so 舰长 never reads as the old hands. The bar and the colours are the timeline's. On desktops it sits under
+   the title, outside the readout's height, so the camera frames the fleet as before; on phones it follows the date.
+   No line ever wraps. The big figures keep the width of their largest value over the voyage (hud.ts), so a day with
+   more of them leaving never widens the right column and squeezes the left; on desktops the board is as wide as its
+   lines need, at least 330 px. */
+.board{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 84px);width:max-content;min-width:330px;white-space:nowrap;box-sizing:border-box;display:grid;gap:8px;padding:11px 14px 12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-variant-numeric:tabular-nums}
+.board dl,.board dd{margin:0}
+.board .b-total{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.board .b-k{font-size:12px;letter-spacing:.1em;color:var(--mute)}
+.board .b-total b{font-family:var(--f-data);font-weight:500;font-size:40px;line-height:1;letter-spacing:.02em}
+.board .b-bar{display:flex;gap:2px;height:10px}
+.board .b-bar i{display:block;flex:1 1 0;min-width:3px}
+.board .b-s{background:var(--ember)}
+.board .b-l{background:var(--slate)}
+.board .b-parts{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 16px}
+.board .b-parts > div{display:grid;grid-template-columns:1fr auto;align-items:baseline;column-gap:8px;row-gap:1px;align-content:start}
+.board dt{font-size:13px;white-space:nowrap}
+.board .sw{display:inline-block;width:9px;height:9px;margin-right:6px;vertical-align:1px}
+.board .b-stay dt .sw{background:var(--ember)}
+.board .b-left dt .sw{background:var(--slate)}
+.board .b-n{font-family:var(--f-data);font-weight:500;font-size:19px}
+.board .b-total b,.board .b-n{text-align:right}
+.board .b-stay .b-n{color:var(--ember)}
+.board .b-left .b-n{color:var(--slate)}
+.board .b-sub,.board .b-vet{grid-column:1 / -1}
+.board .b-sub{padding-left:15px;font-size:12px;color:var(--mute)}
+.board .b-sub span,.board .b-more span{font-family:var(--f-data);color:var(--moon)}
+.board .b-vet{margin-top:5px;font-size:12.5px;color:var(--gold)}
+.board .b-vet .sw{background:var(--gold);transform:rotate(45deg) scale(.8)}
+.board .b-vet b{font-family:var(--f-data);font-weight:500;font-size:15px}
+.board .b-more{display:block;padding-left:15px;font-size:11.5px;color:var(--mute)}
+
+.tag{position:absolute;left:0;top:0;pointer-events:none;display:grid;justify-items:center;gap:2px;font-family:var(--f-display);font-size:13px;letter-spacing:.2em;color:var(--moon);text-shadow:0 1px 10px rgba(0,0,0,.9);white-space:nowrap}
+/* her ship is named for her: 「火羽ひのめ　号」, with a gap before 号 (user, 2026-10-24) */
+.tag .go{font-weight:inherit;margin-left:.6em}
+.tag i{display:block;width:1px;height:16px;background:linear-gradient(var(--moon),transparent);opacity:.6}
+/* a ship's name tag (src/names.ts): the name, then rank and days with her on the day shown, a chip for the 老船长 tier.
+   It fades in and out; it stands over the masthead, so it never covers the ship it names. */
+.ship-tag{letter-spacing:.04em;font-family:var(--f-body);opacity:0;transition:opacity .2s;justify-items:center;z-index:2}
+.ship-tag.on{opacity:1}
+.ship-tag b{display:flex;align-items:center;gap:6px;font-weight:500;font-size:14px;padding:3px 10px 1px;background:var(--panel);border-radius:6px 6px 0 0}
+.ship-tag small{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--mute);padding:1px 10px 4px;background:var(--panel);border-radius:0 0 6px 6px}
+.ship-tag b.anon{color:var(--slate)}
+.ship-tag em,.find-list em{font-style:normal;font-size:10px;letter-spacing:.06em;padding:0 5px;border:1px solid var(--line);border-radius:999px;color:var(--mute)}
+/* 一年以上的老舰长 always named over their pillars of light (src/names.ts) */
+.vet-tag{display:flex;align-items:center;gap:5px;letter-spacing:.04em;font-family:var(--f-body);padding:2px 7px;background:var(--panel);border-radius:5px;z-index:1}
+.vet-tag b{font-weight:500;font-size:12px}
+.vet-tag .vt{font-size:10px;line-height:14px}
+.toon .vet-tag{background:none;border-radius:0}
+.toon .vet-tag::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ink);box-shadow:3px 3px 0 var(--main);transform:skewX(var(--skew))}
+.ship-tag i.stem{margin-top:2px;width:2px;height:22px;opacity:.8}
+/* the 老船长 tier, in the light pillars' fishing-fire white gold (src/veterans.ts), one step brighter per tier */
+.vt{--fire:#ffe6b8;display:inline-flex;align-items:center;gap:2px;text-decoration:none;font-size:10.5px;font-weight:500;letter-spacing:.06em;padding:0 6px;border-radius:3px;line-height:16px}
+.vt.t1{color:rgba(255,230,184,.72);box-shadow:inset 0 0 0 1px rgba(255,230,184,.5)}
+.vt.t2{color:var(--fire);box-shadow:inset 0 0 0 1.5px var(--fire);background:rgba(255,204,133,.16)}
+.vt.t3{color:#1a1006;background:var(--fire)}
+.vt s{display:block;width:5px;height:5px;margin-left:1px;border:1.5px solid currentColor;border-radius:50%;text-decoration:none}
+/* 寻舟 (src/names.ts): the button sits out of the flow beside the 星 and 篝火 readouts, left of them on wide screens and at
+   the right end of their row on phones, so the readout keeps its height and the camera its framing; in 二次元 it is a
+   cell of their strip. The panel is a sheet like the others. */
+.stats-row{position:relative}
+#findBtn{position:absolute;top:50%;right:calc(100% + 14px);transform:translateY(-50%);pointer-events:auto;white-space:nowrap}
+.sheet.find{bottom:auto;max-height:calc(100% - var(--dock-h,170px) - 144px)}
+.find input{box-sizing:border-box;width:100%;font:inherit;font-size:15px;color:var(--moon);background:rgba(230,232,239,.06);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.find input:focus-visible{outline:2px solid var(--ember);outline-offset:1px}
+.find-note{margin:8px 0;font-size:12px;line-height:1.5;color:var(--mute)}
+.find-list{list-style:none;margin:0;padding:0;display:grid;gap:3px}
+.find-list button{width:100%;display:flex;align-items:baseline;justify-content:space-between;gap:4px 12px;flex-wrap:wrap;text-align:left;padding:5px 10px}
+.find-list b{font-weight:500;font-size:14px;overflow-wrap:anywhere}
+.find-list small{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--mute);white-space:nowrap}
+/* while a ship is picked and the camera is on it: back to the whole fleet, just above the middle of the dock. At the top
+   between the title and the date it covered the picked ship's tag, which stands high over the masthead when the camera
+   is close (2026-10-24). */
+#findClear{position:absolute;left:50%;bottom:calc(var(--dock-h,170px) + 24px);transform:translateX(-50%);z-index:3}
+.cinema .back{display:none}
+
+.dock{position:absolute;left:0;right:0;bottom:0;
+  padding-bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.dock-inner{max-width:1040px;margin-inline:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px 8px;display:grid;gap:8px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.controls .spacer{flex:1}
+button{font-family:var(--f-body);font-size:13px;color:var(--moon);background:rgba(230,232,239,.06);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{background:rgba(230,232,239,.12)}
+button:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+button.primary{background:var(--ember);color:#1a1006;border-color:transparent;font-weight:500}
+button.primary:hover{background:#f7b96c}
+#timeline{display:block;width:100%;height:100px;touch-action:none;cursor:ew-resize}
+#timeline:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+/* The dock's controls (2026-10-24: the user could not tell which button to press first, nor whether a setting was on,
+   and an off setting went grey as if the button did not work). Three kinds, each with its own look: play, the one thing
+   to press, filled and larger, calling while the page waits at today; cinema mode, the other way to watch, outlined in
+   the same colour beside it; and the settings, each its name and a chip with what it is set to, 大事慢放 a switch that
+   lights up. Nothing greys out. Every button keeps the row's 33 px, so the dock, and the camera's framing, stay as they were. */
+.controls button{display:inline-flex;align-items:center;gap:6px;box-sizing:border-box;height:33px;padding:0 12px;white-space:nowrap}
+.controls .ic{width:12px;height:12px;fill:currentColor;flex:none}
+#cinema .ic{width:16px}
+#play{gap:8px;padding:0 18px 0 16px;font-size:15px;font-weight:700;letter-spacing:.06em}
+#play .ic-pause,#play[data-state="pause"] .ic-play{display:none}
+#play[data-state="pause"] .ic-pause{display:inline}
+#play[data-state="start"]{animation:call 2.2s ease-out infinite}
+@keyframes call{0%{box-shadow:0 0 0 0 rgba(244,166,80,.7)}70%,100%{box-shadow:0 0 0 10px rgba(244,166,80,0)}}
+.calm #play[data-state="start"]{animation:none;box-shadow:0 0 0 3px rgba(244,166,80,.4)}
+button.feature{color:var(--ember);border:1.5px solid var(--ember);background:rgba(244,166,80,.08);font-weight:500}
+button.feature:hover{background:rgba(244,166,80,.18)}
+.controls .k{font-size:12px;color:var(--mute)}
+.controls .v{font-weight:500;padding:1px 7px;border-radius:4px;background:rgba(230,232,239,.14);color:var(--moon)}
+/* the switch: off, a dim track with the knob at the left; on, lit in the play button's colour with the knob at the right */
+.controls .tog{position:relative;flex:none;width:28px;height:16px;border-radius:8px;background:rgba(230,232,239,.16);box-shadow:inset 0 0 0 1px rgba(230,232,239,.22);transition:background .2s}
+.controls .tog::after{content:"";position:absolute;top:3px;left:3px;width:10px;height:10px;border-radius:50%;background:var(--mute);transition:transform .2s,background .2s}
+[aria-pressed="true"] > .tog{background:var(--ember);box-shadow:none}
+[aria-pressed="true"] > .tog::after{transform:translateX(12px);background:#1a1006}
+.controls .sep{flex:none;width:1px;height:18px;background:var(--line)}
+/* a sheet's button while its sheet is open */
+#findBtn[aria-expanded="true"],#legendBtn[aria-expanded="true"]{background:rgba(230,232,239,.22);border-color:rgba(230,232,239,.5)}
+
+/* both sheets hang from the same line under the date and the 星 row, and end above the dock */
+.sheet{box-sizing:border-box;position:absolute;z-index:4;right:max(16px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 120px);bottom:calc(var(--dock-h,170px) + 24px);width:min(454px,calc(100% - 32px));max-height:calc(100% - var(--dock-h,170px) - 110px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.sheet h2{margin:0 0 10px;font-family:var(--f-display);font-weight:500;font-size:15px;letter-spacing:.12em}
+.sheet > p{margin:0 0 12px;font-size:12px;line-height:1.6;color:var(--mute)}
+.legend ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.legend li{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start;font-size:13px;line-height:1.55}
+.legend b{font-weight:500;color:var(--moon)}
+.legend p{margin:0;color:var(--mute);font-size:12px}
+.legend .sw{width:12px;height:12px;border-radius:50%;margin-top:5px}
+.note{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--mute);line-height:1.6}
+
+#nogl{position:absolute;inset:0;display:grid;place-items:center;padding-inline:max(16px,env(safe-area-inset-left,0px));text-align:center;color:var(--mute)}
+
+/* cinema mode */
+#stage::before,#stage::after{content:"";position:absolute;left:0;right:0;height:0;background:#000;z-index:5;pointer-events:none;transition:height .6s ease}
+#stage::before{top:0}
+#stage::after{bottom:0}
+.cinema #stage::before,.cinema #stage::after{height:var(--bar,0px)}
+.cinema .hud,.cinema .dock,.cinema .sheet,.cinema .tag{display:none!important}
+.caption{display:none;position:absolute;z-index:6;left:max(28px,env(safe-area-inset-left,0px));bottom:calc(var(--bar,0px) + env(safe-area-inset-bottom,0px) + 22px);gap:6px;pointer-events:none;text-shadow:0 1px 16px rgba(0,0,0,.95)}
+.cinema .caption{display:grid}
+.caption .c-date{font-family:var(--f-display);font-weight:500;font-size:30px;letter-spacing:.18em;color:var(--moon);font-variant-numeric:tabular-nums}
+.caption .c-sub{font-family:var(--f-data);font-size:12px;letter-spacing:.08em;color:var(--mute)}
+.exit{display:none;position:absolute;z-index:7;top:calc(env(safe-area-inset-top,0px) + 12px);right:max(16px,env(safe-area-inset-right,0px));opacity:.4;transition:opacity .3s}
+.cinema .exit{display:block}
+.exit:hover,.exit:focus-visible{opacity:1}
+
+/* 二次元 (the Persona-style direction, 2026-10-22): the 2D layer goes flat, in vermilion, black and white, set at an angle,
+   with a white guide line and no blur. Pure black lives only here, never in the 3D picture. 写实 keeps the glass panels above.
+   Every box keeps its 写实 size (padding is paid back with negative margins, borders stay and turn transparent), because
+   the camera frames the fleet by the heights of the readout and the dock: switching style must not move the picture. */
+/* One slant for everything (2026-10-24, after Metaphor: ReFantazio's rule of one bold idea per screen, read at a glance):
+   every shape slants 10°; only the two headline plates, the title and the date, also turn 3°. Shadows fall inwards, to
+   the right in the left column and to the left in the right one, so the outer edges keep the 16 px margin; a red plate
+   casts black, a black plate red. A slanted panel puts its outer corner on the margin, not its middle. */
+.toon{--main:#e8382b;--ink:#0c0a0b;--skew:-10deg}
+.toon .hud{text-shadow:none}
+.toon .brand h1{position:relative;z-index:1;justify-self:start;background:var(--main);color:var(--ink);padding:3px 16px 3px 12px;margin:-3px 0;transform:translateX(3px) rotate(-3deg) skewX(var(--skew));box-shadow:6px 6px 0 var(--ink);letter-spacing:.2em}
+.toon .date{position:relative;z-index:1;background:var(--ink);color:#fff;padding:2px 16px;margin:-2px 0;font-style:italic;transform:translateX(-3px) rotate(-3deg) skewX(var(--skew));box-shadow:-6px 6px 0 var(--main)}
+.toon .stats{background:var(--ink);padding:6px 14px;margin:-2px 0 -10px;border-left:4px solid var(--main);transform:translateX(-5px) skewX(var(--skew));box-shadow:-6px 6px 0 var(--main)}
+.toon .stats > div{transform:skewX(calc(-1*var(--skew)))}   /* the panel slants, the small labels and numbers stay upright */
+.toon .stats dt{color:var(--main);font-weight:500}
+/* 寻舟 is the strip's first cell: as tall as it, on the same slant, the red edge between them; it turns white while open */
+.toon #findBtn{top:-2px;right:100%;height:calc(100% + 12px);transform:translateX(-5px);padding:0 14px}
+.toon #findBtn::before{inset:0;background:var(--ink);box-shadow:-6px 6px 0 var(--main)}
+.toon #findBtn:hover::before{background:#2a2426}
+.toon #findBtn[aria-expanded="true"],.toon #legendBtn[aria-expanded="true"]{color:var(--ink)}
+.toon #findBtn[aria-expanded="true"]::before,.toon #legendBtn[aria-expanded="true"]::before{background:#fff}
+/* the board slants, its text stays upright; the borders stay 1 px (transparent) so it is as tall as in 写实. On wide
+   screens the title plate lies over its top edge, as a header tab, and its lower left corner is on the margin. */
+.toon .board{top:calc(env(safe-area-inset-top,0px) + 48px);left:calc(max(16px,env(safe-area-inset-left,0px)) + 15px);background:var(--ink);border-color:transparent;border-left:4px solid var(--main);border-radius:0;backdrop-filter:none;-webkit-backdrop-filter:none;transform:skewX(var(--skew));box-shadow:6px 6px 0 var(--main)}
+.toon .board > *{transform:skewX(calc(-1*var(--skew)))}
+.toon .board .b-k{color:var(--main);font-weight:500}
+.toon .board .b-total b{color:#fff}
+.toon .tag{font-family:var(--f-body);font-weight:500;color:#fff;text-shadow:none}
+.toon .tag span{position:relative;z-index:0;padding:2px 10px}
+.toon .tag span::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ink);box-shadow:3px 3px 0 var(--main);transform:skewX(var(--skew))}
+.toon .ship-tag b,.toon .ship-tag small{position:relative;z-index:0;background:none;border-radius:0}
+.toon .ship-tag b::before,.toon .ship-tag small::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ink);transform:skewX(var(--skew))}
+.toon .ship-tag b::before{box-shadow:3px 3px 0 var(--main)}
+.toon .ship-tag small{color:#cfd3dc}
+.toon .vt{border-radius:0;transform:skewX(var(--skew))}
+.toon .find input{border-radius:0;background:#fff;color:var(--ink);border-color:transparent}
+.toon .find input:focus-visible,.toon button:focus-visible,.toon #timeline:focus-visible{outline-color:#fff}
+/* over the picture, not over a panel: black like the readouts, so it reads on a bright sea too */
+.toon #findClear::before{background:var(--ink);box-shadow:3px 3px 0 var(--main)}
+.toon #findClear:hover::before{background:#2a2426}
+.toon .dock-inner,.toon .sheet{background:var(--ink);border-color:transparent;border-top-color:var(--main);box-shadow:inset 0 2px 0 var(--main);border-radius:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+.toon .dock-inner{position:relative}
+.toon .dock-inner::before{content:"";position:absolute;left:-6px;top:-17px;width:240px;height:14px;background:var(--main);transform:skewX(var(--skew))}
+.toon .dock-inner::after{content:"";position:absolute;left:250px;right:24px;top:-11px;height:2px;background:#fff}
+.toon .sheet h2{display:table;background:var(--main);color:var(--ink);padding:1px 12px;margin-top:-1px;margin-bottom:9px;font-weight:700;transform:skewX(var(--skew))}
+/* buttons slant through a layer behind the label, so the text stays upright and the focus ring stays a plain box */
+.toon button{position:relative;z-index:0;border-color:transparent;border-radius:0;background:none;font-weight:500}
+.toon button::before{content:"";position:absolute;inset:-1px;z-index:-1;background:rgba(255,255,255,.10);transform:skewX(var(--skew))}
+.toon button:hover::before{background:rgba(255,255,255,.18)}
+.toon button.primary{background:none;color:var(--ink)}
+.toon button.primary::before{background:var(--main)}
+.toon button.primary:hover::before{background:#f05a4c}
+/* the dock's three kinds in 二次元: play a larger vermilion plate, with a plate behind it that runs out and fades while it
+   calls; cinema mode a black plate edged in vermilion, white label, vermilion icon; a setting's chip a slanted white
+   block; the switch slants, white knob on vermilion when on */
+.toon #play::before{inset:-3px -2px}
+.toon #play[data-state="start"]{animation:none;box-shadow:none}
+.toon #play[data-state="start"]::after{content:"";position:absolute;inset:-3px -2px;z-index:-2;background:var(--main);transform:skewX(var(--skew));animation:call-toon 2.2s ease-out infinite}
+@keyframes call-toon{0%{opacity:.75;transform:skewX(var(--skew)) scale(1)}70%,100%{opacity:0;transform:skewX(var(--skew)) scale(1.12,1.6)}}
+.calm .toon #play[data-state="start"]::after{animation:none;opacity:.3;transform:skewX(var(--skew)) scale(1.06,1.3)}
+.toon button.feature{color:#fff}
+.toon button.feature .ic{fill:var(--main)}
+.toon button.feature::before{background:rgba(232,56,43,.16);box-shadow:inset 0 0 0 2px var(--main)}
+.toon button.feature:hover::before{background:rgba(232,56,43,.32)}
+.toon .controls .k{color:#c3c7d0}
+.toon .controls .v{position:relative;z-index:0;background:none;border-radius:0;color:var(--ink);padding:0 7px}
+.toon .controls .v::before{content:"";position:absolute;inset:0;z-index:-1;background:#fff;transform:skewX(var(--skew))}
+.toon .controls .tog{border-radius:0;transform:skewX(var(--skew));background:rgba(255,255,255,.12);box-shadow:inset 0 0 0 1px rgba(255,255,255,.32)}
+.toon .controls .tog::after{border-radius:0;background:#9aa0ad}
+.toon [aria-pressed="true"] > .tog{background:var(--main);box-shadow:none}
+.toon [aria-pressed="true"] > .tog::after{background:#fff}
+.toon .controls .sep{background:rgba(255,255,255,.4);transform:rotate(10deg)}
+.toon .caption .c-date{justify-self:start;background:var(--ink);padding:2px 16px;margin:-2px 0;font-style:italic;box-shadow:-6px 6px 0 var(--main);transform:skewX(var(--skew))}
+
+/* cut-in when the crew crosses 100, 1,000, 2,000…: a band slides across and out, 二次元 only; with reduced motion it only fades.
+   The text lives inside the band, so they turn and move as one and the text always sits on the black stripe, at every
+   screen size. All text is white (on black, or on a vermilion chip), and CJK glyphs stay upright: only the shapes slant. */
+.cutin{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden;--main:#e8382b;--ink:#0c0a0b;--h:clamp(150px,26vh,420px)}
+.cutin .band{position:absolute;left:-10%;right:-10%;top:calc(40% - var(--h)/2);height:var(--h);background:var(--main);transform:rotate(-7deg);overflow:hidden}
+.cutin .band::before{content:"";position:absolute;left:0;right:0;top:15%;bottom:17%;background:var(--ink)}
+.cutin .band::after{content:"";position:absolute;left:0;right:0;bottom:6%;height:3px;background:#fff}
+.cutin .txt{position:absolute;top:15%;bottom:17%;left:calc(100%/12 + max(16px,7vw));display:flex;flex-direction:column;justify-content:center;gap:calc(var(--h)*.03);color:#fff}
+.cutin p{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:0 calc(var(--h)*.06)}
+.cutin b{font-family:var(--f-data);font-size:min(calc(var(--h)*.42),15vw);line-height:1;font-weight:500;transform:skewX(var(--skew,-10deg))}
+.cutin span{position:relative;z-index:0;font-family:var(--f-display);font-size:min(calc(var(--h)*.17),7vw);line-height:1.25;font-weight:700;letter-spacing:.08em;padding:0 .45em}
+.cutin span::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--main);transform:skewX(var(--skew,-10deg))}
+.cutin small{font-size:max(13px,calc(var(--h)*.08));font-weight:500;letter-spacing:.2em}
+.cutin i{font-family:var(--f-data);font-style:normal;letter-spacing:.08em}
+.cutin.play .band{animation:cutin-band 1.9s cubic-bezier(.2,.8,.2,1) both}
+.cutin.play .txt{animation:cutin-txt 1.9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cutin-band{0%{transform:translateX(-110%) rotate(-7deg)}14%,82%{transform:translateX(0) rotate(-7deg)}100%{transform:translateX(110%) rotate(-7deg)}}
+@keyframes cutin-txt{0%,8%{transform:translateX(-8vw)}26%,100%{transform:none}}
+@keyframes cutin-fade{0%,100%{opacity:0}15%,85%{opacity:1}}
+/* reduced motion follows the system until the page's switch says otherwise; src/renderer.ts sets .calm on <html> */
+.calm .cutin.play .band{animation-name:cutin-fade}.calm .cutin.play .txt{animation:none}
+
+@media (max-width:640px){
+  /* the title and the date share the first row, as on wide screens; then the board, then the 星 row with 寻舟 at its end */
+  .hud{display:grid;grid-template-columns:auto auto;justify-content:space-between;align-items:center;gap:10px 12px}
+  .readout{display:contents}
+  .brand,.date{grid-row:1}
+  .date{justify-self:end}
+  .brand h1{font-size:22px}
+  .date{font-size:20px}
+  .stats{grid-template-columns:repeat(2,auto);justify-content:start;gap:4px 18px}
+  .stats-row{grid-column:1 / -1;grid-row:3}
+  #findBtn{right:10px}
+  /* the sheets hang from under the title row and cover the board whole, rather than cutting through its big figure */
+  .sheet{top:calc(env(safe-area-inset-top,0px) + 58px);max-height:none}
+  .sheet.find{max-height:calc(100% - var(--dock-h,170px) - 82px)}
+  .stats div{display:flex;align-items:baseline;gap:6px}
+  .board{position:static;width:auto;min-width:0;grid-column:1 / -1;grid-row:2}
+  /* One column. Panels as wide as it stand upright, edge to edge with the dock and the sheets: slanted at the full width
+     the board's corners reached the screen's edges, and inset to the margin it had no room for its lines. The small
+     pieces still slant. Shadows fall straight down; 寻舟 closes the strip, behind a red edge. */
+  .toon .board,.toon .board > *,.toon .stats,.toon .stats > div,.toon #findBtn,.toon #findBtn::before{transform:none}
+  .toon .board,.toon .stats{box-shadow:0 6px 0 var(--main)}
+  .toon #findBtn{right:0}
+  .toon #findBtn::before{box-shadow:inset 4px 0 0 var(--main)}
+  .board .b-total b{font-size:34px}
+  #timeline{height:96px}
+  button{padding:6px 10px}
+  /* the buttons in one row that scrolls sideways: wrapped into three rows, the dock and the board left a phone about a
+     third of its height for the sea, and on a short phone a rising gate was a thin strip between them */
+  .controls{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-12px;padding-inline:12px}
+  /* room inside the scrolling row for play's larger plate and its call, paid back so the row stays 33 px */
+  .controls{padding-block:10px;margin-block:-10px}
+  .controls button{padding:0 10px}
+  #play{padding:0 14px 0 12px}
+  .controls::-webkit-scrollbar{display:none}
+  .controls > *{flex:none}
+  .controls .spacer{display:none}
+  .caption .c-date{font-size:22px}
+}
+/* short phones: a lower timeline */
+@media (max-width:640px) and (max-height:760px){#timeline{height:72px}}
+/* phones narrower than the board needs (about 350 px with web fonts) scale the whole board down, so nothing wraps */
+@media (max-width:389px){.board{zoom:.9}}
+@media (max-width:340px){.board{zoom:.8}}

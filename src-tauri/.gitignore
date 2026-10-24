@@ -1,0 +1,3 @@
+# Rust build output and files Tauri generates during a build
+/target/
+/gen/

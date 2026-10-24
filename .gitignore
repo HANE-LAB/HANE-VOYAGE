@@ -1,0 +1,18 @@
+# 本机环境
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# 只留在本机的密钥和个人设置
+config.local.toml
+CLAUDE.local.md
+
+# 前端依赖和构建结果（npm install、npm run build 生成）
+node_modules/
+dist/
+
+# 本机下载的原始数据和截图检查的输出
+data/raw/
+data/**/*.tmp
+dev/.sandbox/
