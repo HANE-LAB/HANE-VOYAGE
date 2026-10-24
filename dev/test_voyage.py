@@ -375,10 +375,41 @@ class VoyageTests(unittest.TestCase):
             {"author_mid": str(UID), "ts": ms(2021, 2, 9, 20) // 1000, "tags_rule": ["日常/杂谈"]},
             {"author_mid": "999", "ts": ms(2021, 2, 10, 20) // 1000, "tags_rule": ["直播预告"]},
         ]), encoding="utf-8")
-        self.assertEqual(B.notice_days(self.hane), {3, 4})
+        self.assertEqual(B.notice_days(self.hane, self.data), {3, 4})
+        # 没有 HANE 的 posts.json 时（公开仓库的每日更新）读上次另存的日子；两样都没有才停止
+        self.assertEqual(json.loads((self.data / "live_notices.json").read_text(encoding="utf-8")),
+                         ["2021-02-06", "2021-02-07"])
         posts.unlink()
+        self.assertEqual(B.notice_days(self.hane, self.data), {3, 4})
+        (self.data / "live_notices.json").unlink()
         with self.assertRaisesRegex(FileNotFoundError, "--hane"):
-            B.notice_days(self.hane)
+            B.notice_days(self.hane, self.data)
+
+    def test_prune_keeps_a_week_of_hashed_snapshots_and_backfill_still_works(self):
+        # 公开仓库的每日更新：Actions 缓存里只留最近 7 天的快照，昵称换成哈希；回填和改名的核对照样能做
+        guard = self.data / "guard"
+        for s in (snapshot(0, [("aaaaaa", 3, "甲")]),  # 比最新一份早 8 天，删掉
+                  snapshot(6, [("aaaaaa", 9, "甲"), ("bbbbbb", 4, "乙")]),
+                  snapshot(8, [("aaaaaa", 0, "甲"), ("bbbbbb", 6, "乙")])):
+            F.save_text(guard / f"{s['time'][:10]}.json", F.snapshot_text(s["time"], s["total"], s["members"], s["columns"]))
+        self.assertEqual(B.prune(self.data), (1, 2))
+        kept = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(guard.glob("*.json"))]
+        self.assertTrue(all(s["hashed"] for s in kept))
+        text = "".join(p.read_text(encoding="utf-8") for p in guard.glob("*.json"))
+        self.assertNotIn("甲", text)
+        self.assertNotIn("乙", text)
+        self.assertEqual(B.prune(self.data), (0, 2))  # 再跑一次不变
+        self.assertEqual([json.loads(p.read_text(encoding="utf-8")) for p in sorted(guard.glob("*.json"))], kept)
+        latest = snapshot(9, [("aaaaaa", 0, "甲"), ("bbbbbb", 0, "改名")])
+        values, audit = B.accompany(kept + [latest])
+        self.assertEqual(values, [12, None])  # 甲按第 6 天的 9 天推到第 9 天；乙改了名，不认
+        self.assertEqual(audit["unknown"], [{"index": 1, "reason": "name_changed"}])
+        # 最新一份不能是哈希的：页面的名字从它来
+        F.save_text(guard / "2021-02-12.json", F.snapshot_text(latest["time"], 2, latest["members"], latest["columns"], hashed=True))
+        with patch.object(F, "get_json", Net(VTBS_FULL)):
+            F.update_vtbs(self.data / "raw")
+        with self.assertRaisesRegex(ValueError, "哈希"):
+            B.build(self.data, self.hane)
 
     def test_named_ships_never_outnumber_the_fleet_and_old_ships_come_first(self):
         # 第 0–44 天：1、2 人，然后 3 人，第 10–34 天跌到 2 人，第 35 天起暴涨。

@@ -3,10 +3,10 @@ interface Window {
   __fixedQuality?: boolean;
   __dtMax?: number;
   __samples?: number;
-  // the fleet's instance buffers and its update, for dev/shots.mjs motion
+  // the fleet's instance buffers and its update, for the motion check
   __fleet: { OFF: Float32Array; DYN: Float32Array; INFO: Float32Array; updateFleet(t: number, dt: number, jump: boolean): unknown };
   // the two gates whose water is being drawn (src/rise.ts): [gate index, seconds since the top beam, the tie beam and the
-  // legs' cross beams left the water (-1 not yet, 1000 long ago)], for dev/shots.mjs to shoot moments of a rise
+  // legs' cross beams left the water (-1 not yet, 1000 long ago)], for the screenshot checks to shoot moments of a rise
   __rise(): number[][];
   // her look shown (src/figures.ts), the one it changes from and how far, which models are decoded and how long each took
   // (ms: all, and building), how far into a wave each of them is (-1: not waving) and how much each watches something

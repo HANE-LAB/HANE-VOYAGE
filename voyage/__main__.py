@@ -1,4 +1,4 @@
-"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,guard,build,forget}"""
+"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,guard,build,forget,prune}"""
 from __future__ import annotations
 
 import argparse
@@ -17,9 +17,9 @@ def main(argv=None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(prog="python -m voyage", description=__doc__)
-    parser.add_argument("command", choices=("update", "vtbs", "guard", "build", "forget"),
-                        help="update 依次运行 vtbs、guard、build；build 只用本机数据，不联网；"
-                             "forget 把要求删掉名字的人记进删除名单")
+    parser.add_argument("command", choices=("update", "vtbs", "guard", "build", "forget", "prune"),
+                        help="update 依次运行 vtbs、guard、build；build 只用已下载的数据，不联网；"
+                             "forget 把要求删掉名字的人记进删除名单；prune 给公开仓库的每日更新用：快照只留最近几天，昵称换成哈希")
     parser.add_argument("uids", nargs="*", help="forget 用：要删掉名字的人的 UID；不写就逐行输入")
     parser.add_argument("--hane", type=Path, default=ROOT.parent / "hane", help="HANE 的目录，只读其中的开播档案")
     parser.add_argument("--data", type=Path, default=DATA, help="数据目录，默认 data/")
@@ -51,6 +51,9 @@ def main(argv=None) -> int:
             if not r["complete"]:
                 raise RuntimeError("名单没有翻完或人数对不上，这次不存快照")
             print(f"  快照 {r['file']}")
+        if "prune" in steps:
+            gone, kept = B.prune(args.data)
+            print(f"快照：删掉 {gone} 份，留下 {kept} 份，昵称都换成了哈希")
         if "build" in steps:
             out = B.build(args.data, args.hane)
             print(f"合成 {args.data / 'voyage.json'}：{len(out['total'])} 天，名单 {len(out['named'])} 人"

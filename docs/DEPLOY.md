@@ -10,7 +10,7 @@
 
 ## 工作流与触发条件
 
-构建工作流定义在 [deploy.yml](../.github/workflows/deploy.yml)。
+有两个工作流：建站的 [deploy.yml](../.github/workflows/deploy.yml)，和每天更新数据的 [update-data.yml](../.github/workflows/update-data.yml)（见下文「更新数据」）。下面先说建站。
 推送 `main` 且改动涉及 `index.html`、`src/`、`data/voyage.json`、`src-tauri/`、`package.json`、`package-lock.json`、`vite.config.ts`、`tsconfig.json` 或工作流时自动发布，也可以手动运行。只更新数据的提交也会重建网站。纯 README 或 `docs/` 修改不会重建网站。
 
 | Job | 运行环境 | 内容 |
@@ -20,19 +20,17 @@
 | `desktop` | Windows | 用 Tauri 构建桌面版：免安装的 exe 和 NSIS 安装包。Rust 用 GitHub 机器上预装的版本，依赖和编译结果按 `src-tauri/Cargo.lock` 缓存 |
 | `release` | Ubuntu | 在 `build` 和 `desktop` 都成功后，把三个文件上传到 Release「offline」，替换旧文件，并更新下载说明 |
 
-类型检查或构建失败时，对应的发布会停止，网站和下载文件保持上一版。工作流默认权限是 `contents: read`、`pages: write`、`id-token: write`；只有 `release` 用 `contents: write` 更新 Release。它不采集数据，也不需要配置 Secrets。
+类型检查或构建失败时，对应的发布会停止，网站和下载文件保持上一版。工作流默认权限是 `contents: read`、`pages: write`、`id-token: write`；只有 `release` 用 `contents: write` 更新 Release。建站不采集数据，也不需要配置 Secrets。
 
 Windows 上第一次构建要编译全部 Rust 依赖，约需 10 到 20 分钟；有缓存后会快很多。
 
 ## 更新数据
 
-数据有一条和页面代码分开的更新链路：采集程序 `voyage/` 只负责生成 `data/voyage.json`，页面只读这个文件。网站上线以后，想更新到最新的大航海人数、名单和舰长昵称时，不需要改任何页面代码：
+数据每天自动更新：公开仓库每天日本时间 03:00（UTC 18:00）运行 [update-data.yml](../.github/workflows/update-data.yml)，抓 vtbs.moe 的每日人数和粉丝数、翻一遍当前的大航海名单（含昵称），合成 `data/voyage.json` 提交到 `main`，再触发建站。名单接口不用登录，不需要配置任何 Cookie。在 Actions 里点「每日更新大航海数据」的 Run workflow 可以立刻更新一次。步骤、快照怎么存、失败时怎样，见 [数据](DATA.md#每日自动更新)。
 
-1. 在项目根目录运行 `uv run python -X utf8 -m voyage update`。它依次更新 vtbs.moe 的每日人数和粉丝数、翻一遍当前的大航海名单（含昵称）、合成 `data/voyage.json`。名单要翻十几分钟，参数和注意事项见 [数据](DATA.md#采集)。
-2. 运行 `npm run build`，打开构建结果看一眼。
-3. 提交 `data/`，推送 `main`。工作流会重建网站、离线包和桌面版。
+GitHub 的定时任务在高峰时可能晚几分钟到一小时开始。仓库连续 60 天没有活动时，GitHub 会停掉定时任务；每天的数据提交本身就算活动，所以正常不会停。失败时 GitHub 会给仓库所有者发邮件。
 
-每次得到的都是运行那一刻的名单，以前的快照保留在 `data/guard/`。合成时提示「核实数字对不上」，说的是时间轴上的白点（人工核实过的数字）和 vtbs.moe 当天最后一条记录之间的差，不是更新出了错，原因见 [数据](DATA.md#已核实的数字)。
+在本地更新数据也可以：运行 `uv run python -X utf8 -m voyage update`，再运行 `npm run build` 看一眼。合成时提示「核实数字对不上」，说的是时间轴上的白点（人工核实过的数字）和 vtbs.moe 当天最后一条记录之间的差，不是更新出了错，原因见 [数据](DATA.md#已核实的数字)。
 
 ## 发布内容
 

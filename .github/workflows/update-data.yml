@@ -1,0 +1,75 @@
+name: 每日更新大航海数据
+
+# 每天日本时间 03:00（UTC 18:00）抓一次 vtbs.moe 和 B 站直播间的大航海名单，合成 data/voyage.json 提交到 main，
+# 再触发「发布 HANE Voyage」重建网站、离线包和桌面版。名单接口不用登录，这里不放任何凭据。
+# 名单快照只存在 Actions 缓存里：留最近 7 天，昵称换成哈希（python -m voyage prune），只用来补陪伴天数为 0 的人。
+# 有人要求删掉名字时，删除名单放在仓库的 secret NAME_REMOVALS 里。失败时不提交，网站保留前一天的数据。
+on:
+  schedule:
+    - cron: "0 18 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/update-data.yml"]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    # 开发仓库里也有这份文件，只在公开仓库跑
+    if: github.repository == 'HANE-LAB/HANE-VOYAGE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # 回归里有一项用 Node 跑 src/uid.ts，确认页面和采集程序算出的 UID 哈希相同
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: 先跑采集程序的离线回归
+        run: python -X utf8 dev/test_voyage.py
+      - name: 取回最近几天的名单快照
+        uses: actions/cache/restore@v4
+        with:
+          path: data/guard
+          key: guard-${{ github.run_id }}
+          restore-keys: guard-
+      - name: 取 HANE 公开的开播档案
+        run: |
+          mkdir -p hane/data
+          curl -fsSL --retry 3 -o hane/data/live_sessions.json https://raw.githubusercontent.com/HANE-LAB/HANE/main/data/live_sessions.json
+      - name: 采集并合成
+        env:
+          NAME_REMOVALS: ${{ secrets.NAME_REMOVALS }}
+        run: |
+          if [ -n "$NAME_REMOVALS" ]; then printf '%s' "$NAME_REMOVALS" > data/name-removals.json; fi
+          python -X utf8 -m voyage update --hane hane
+      - name: 快照只留 7 天，昵称换成哈希
+        run: python -X utf8 -m voyage prune
+      - name: 存回缓存
+        uses: actions/cache/save@v4
+        with:
+          path: data/guard
+          key: guard-${{ github.run_id }}
+      - name: 提交数据并重建网站
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "HANE-LAB"
+          git config user.email "343091130+HANE-LAB@users.noreply.github.com"
+          git add data/voyage.json
+          if git diff --cached --quiet; then echo "数据没有变化"; exit 0; fi
+          git commit -m "data: $(TZ=Asia/Tokyo date +%F) 的大航海名单"
+          git pull --rebase origin main
+          git push origin HEAD:main
+          # 用 GITHUB_TOKEN 推送不会触发别的工作流，所以直接触发建站
+          gh workflow run deploy.yml --ref main

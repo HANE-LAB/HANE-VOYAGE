@@ -201,10 +201,12 @@ def guard_page(page: int, cookie: str, forget: frozenset | set = frozenset()):
 COLUMNS = ["id", "level", "medal", "start", "name"]
 
 
-def snapshot_text(time_iso: str, total: int, rows: list, columns: list = COLUMNS) -> str:
-    """快照文件：每人一行。昵称照原样写，不转义成 \\u，打开就看得出是谁，也方便删。"""
+def snapshot_text(time_iso: str, total: int, rows: list, columns: list = COLUMNS, hashed: bool = False) -> str:
+    """快照文件：每人一行。昵称照原样写，不转义成 \\u，打开就看得出是谁，也方便删。公开仓库的每日更新存进
+    Actions 缓存的快照（build.prune）昵称是哈希，标一个 "hashed":true。"""
     lines = ",\n".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) for r in rows)
-    return f'{{"time":"{time_iso}","total":{total},"columns":{json.dumps(columns)},"members":[\n{lines}\n]}}\n'
+    mark = '"hashed":true,' if hashed else ""
+    return f'{{"time":"{time_iso}","total":{total},{mark}"columns":{json.dumps(columns)},"members":[\n{lines}\n]}}\n'
 
 
 def crawl_guard(guard_dir: Path, now: datetime | None = None) -> dict:

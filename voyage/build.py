@@ -1,14 +1,15 @@
 """离线合成：vtbs.moe 记录、名单快照（含零值回填依据）和 HANE 开播档案 → data/voyage.json。"""
 from __future__ import annotations
 
+import hashlib
 import re
 from bisect import bisect_left
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from . import DAY0, UID, day_of, load_json, save_json
-from .fetch import NAME_MAX, clean_name, removed
+from . import DAY0, UID, day_of, load_json, save_json, save_text
+from .fetch import NAME_MAX, clean_name, removed, snapshot_text
 
 # 已核实的数字（docs/DATA.md「已核实的数字」），页面画成白点。
 ANCHORS = {
@@ -47,15 +48,22 @@ GAP = 7
 NOTICE_LEAD = 3600
 
 
-def notice_days(hane: Path) -> set[int]:
-    """HANE 动态档案（只读）里她发了直播预告的日子：HANE 按规则标的「直播预告」，按发出时间加一小时算。"""
-    path = hane / "data" / "posts.json"
+def notice_days(hane: Path, data: Path) -> set[int]:
+    """HANE 动态档案（只读）里她发了直播预告的日子：HANE 按规则标的「直播预告」，按发出时间加一小时算。
+    HANE 的 posts.json 不在它的公开仓库里，所以有它时把这些日子另存进 data/live_notices.json（只有日期，随数据公开），
+    没有它时（公开仓库的每日更新）读这份。"""
+    path, saved = hane / "data" / "posts.json", data / "live_notices.json"
     posts = load_json(path, None)
-    if not isinstance(posts, list):
-        raise FileNotFoundError(f"找不到 HANE 的动态档案 {path}，用 --hane 指定 HANE 的目录")
-    return {day_of((p["ts"] + NOTICE_LEAD) * 1000) for p in posts
-            if str(p.get("author_mid")) == str(UID) and "直播预告" in (p.get("tags_rule") or [])
-            and isinstance(p.get("ts"), (int, float))}
+    if isinstance(posts, list):
+        days = {day_of((p["ts"] + NOTICE_LEAD) * 1000) for p in posts
+                if str(p.get("author_mid")) == str(UID) and "直播预告" in (p.get("tags_rule") or [])
+                and isinstance(p.get("ts"), (int, float))}
+        save_json(saved, sorted(iso(d) for d in days))
+        return days
+    cached = load_json(saved, None)
+    if not isinstance(cached, list):
+        raise FileNotFoundError(f"找不到 HANE 的动态档案 {path}，也没有 {saved}；用 --hane 指定 HANE 的目录")
+    return {index(d) for d in cached}
 
 
 def gaps(live: set[int], last: int) -> list[list[int]]:
@@ -128,6 +136,34 @@ def boarding(starts: list[int], total: list[int]) -> tuple[list[int], dict]:
 ACCOMPANY_LOOKBACK = 7  # 只补最近一周；快照之间仍可能短暂离舰，回填值保留为推定。
 
 
+def name_key(name: str, hashed: bool) -> str:
+    """比较两份快照的昵称时用的键。公开仓库的每日更新只在 Actions 缓存里留最近几天的快照，留之前把昵称换成哈希
+    （prune），所以比较时把明文昵称也算成同样的哈希。"""
+    if not name or hashed:
+        return name
+    return "#" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:16]
+
+
+def prune(data: Path, keep: int = ACCOMPANY_LOOKBACK) -> tuple[int, int]:
+    """只给公开仓库的每日更新用：删掉比最新一份早 keep 天以上的快照，其余的昵称换成哈希，再存进 Actions 缓存。
+    昵称不进缓存，回填只要哈希就能核对同一个人。返回 (删掉的份数, 留下的份数)。"""
+    paths = sorted((data / "guard").glob("*.json"))
+    snaps = [load_json(path, None) for path in paths]
+    if not snaps:
+        return 0, 0
+    last = day_of(datetime.fromisoformat(snaps[-1]["time"]).timestamp() * 1000)
+    removed_n = 0
+    for path, snap in zip(paths, snaps):
+        if last - day_of(datetime.fromisoformat(snap["time"]).timestamp() * 1000) > keep:
+            path.unlink()
+            removed_n += 1
+        elif not snap.get("hashed") and "name" in snap["columns"]:
+            k = snap["columns"].index("name")
+            rows = [[*r[:k], name_key(r[k], False), *r[k + 1:]] for r in snap["members"]]
+            save_text(path, snapshot_text(snap["time"], snap["total"], rows, snap["columns"], hashed=True))
+    return removed_n, len(paths) - removed_n
+
+
 def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
     """只回填最新名单的零值；按 id 分组保留碰撞，原快照不改。audit 的 index 是最新名单的行号（从 0 起）。"""
     latest = snapshots[-1]
@@ -146,7 +182,7 @@ def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
                 raise ValueError("名单快照的 id、陪伴天数或昵称格式不合法")
             groups[r["id"]].append(r)
         ambiguous.update(i for i, rows in groups.items() if len(rows) > 1)
-        history.append((snap["time"], day, groups))
+        history.append((snap["time"], day, groups, bool(snap.get("hashed"))))
     values, audit = [], {"backfilled": [], "unknown": []}
     for k, row in enumerate(latest["members"]):
         current = dict(zip(latest["columns"], row))
@@ -158,13 +194,13 @@ def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
         if current["id"] in ambiguous:
             reason = "ambiguous_id"
         else:
-            name = current.get("name", "")
-            for time, day, groups in reversed(history[:-1]):
+            name = name_key(current.get("name", ""), bool(latest.get("hashed")))
+            for time, day, groups, hashed in reversed(history[:-1]):
                 rows = groups.get(current["id"], [])
                 if not rows:
                     break  # 更早的任期不跨过缺席；已有更近的正值仍可用。
                 previous = rows[0]
-                old_name = previous.get("name", "")
+                old_name = name_key(previous.get("name", ""), hashed)
                 if name and old_name and name != old_name:
                     value, reason = None, "name_changed"
                     break
@@ -192,6 +228,8 @@ def build(data: Path, hane: Path) -> dict:
     snaps = sorted((data / "guard").glob("*.json"))
     snapshots = [load_json(path, None) for path in snaps]
     snap = snapshots[-1] if snapshots else None
+    if snap and snap.get("hashed"):
+        raise ValueError("最新一份快照的昵称已经换成哈希，不能拿来合成页面的名字；先运行 guard 取一份新的")
     totals, last = guard, max(day_of(guard[-1][0]), day_of(active[-1][0]))
     if snap:
         # 合成到这份快照为止，最后一天的总数用快照：它是当时从 B 站读到的，不少于实际取到的人数。
@@ -207,7 +245,7 @@ def build(data: Path, hane: Path) -> dict:
     live = live_days(hane)
     # 档案缺的区间改看动态：那几天发了直播预告就算开播；meta.live_by_posts 记下这些区间，页面标成推断
     by_posts = gaps(live, last)
-    notices = notice_days(hane)
+    notices = notice_days(hane, data)
     lit = live | {d for a, b in by_posts for d in range(a, b + 1) if d in notices}
     total, total_from = daily(totals, last)
     followers, followers_from = daily(active, last)

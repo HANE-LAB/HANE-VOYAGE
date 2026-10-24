@@ -7,7 +7,6 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "check": "tsc",
-    "shots": "node dev/shots.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

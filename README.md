@@ -1,16 +1,17 @@
 # HANE Voyage · 火羽舰队
 
-火羽ひのめ的大航海可视化。她的旗舰在最前面，船头站着她和 kobuta，舰长、提督、总督组成羽毛形的船队跟在后面，从 2021 年起航到今天；每个月船头前方升起一座海中鸟居，样子随那个月同行的人数和季节变化；天上的星星是粉丝数；人数跨过 100 / 1000 人或大涨的日子放烟花，有的炸成火羽或 kobuta 的头像；船头的篝火随她最近开播的频率明暗。
+火羽ひのめ的非官方大航海可视化。她的旗舰在最前面，船头站着她和 kobuta，舰长、提督、总督组成羽毛形的舰队跟在后面，从 2021 年起航到今天；每个月船头前方升起一座海中鸟居，样子随那个月同行的人数和季节变化；天上的星星是粉丝数；人数跨过 100 / 1000 人或大涨的日子放烟花，有的炸成火羽或 kobuta 的头像；船头的篝火随她最近开播的频率明暗。
 
-HANE 系列的第二个产品，第一个是动态与直播档案 [HANE](https://hane-lab.github.io/HANE/)。
+[在线浏览](https://hane-lab.github.io/HANE-VOYAGE/) · [公开源码](https://github.com/HANE-LAB/HANE-VOYAGE) · [离线版下载](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-offline.zip) · [Windows 桌面版](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-setup.exe)
 
-> 当前是原型：船还是占位模型，但数据是真实采集的，来源见[数据](docs/DATA.md)。
+数据每天日本时间 03:00 由 GitHub Actions 自动更新：vtbs.moe 的每日人数和粉丝数，加上 B 站直播间的大航海名单，不需要登录。来源和算法见[数据](docs/DATA.md)。
 
 ## 使用方式
 
-- **直接打开**：运行 `npm install` 和 `npm run build` 后，用 Chrome 或 Edge 打开 `dist/index.html`。three.js 已打包在这个文件里，只有字体需要联网。
-- **本地开发**：运行 `npm run dev`，打开 `http://127.0.0.1:8770/`。根目录的 `index.html` 是开发入口，不能直接双击打开。
-- **桌面版与离线版**：发布后在公开仓库 Releases 的「offline」里下载：`HANE-Voyage-setup.exe` 是 Windows 安装版，`HANE-Voyage.exe` 免安装，`HANE-Voyage-offline.zip` 是网页离线版。
+- **直接浏览**：打开在线网站。右上角「寻舟」输入昵称或 UID，可以找到自己的船。
+- **离线浏览**：下载 `HANE-Voyage-offline.zip`，解压后用 Chrome 或 Edge 打开 `index.html`；只有字体需要联网。
+- **桌面版**：`HANE-Voyage-setup.exe` 是 Windows 安装版，`HANE-Voyage.exe` 免安装，都在 Releases 的「offline」里。
+- **本地开发**：运行 `npm install` 和 `npm run dev`，打开 `http://127.0.0.1:8770/`。`npm run build` 生成单文件 `dist/index.html`。
 - **操作**：点一条船看它是谁，镜头会移过去（拖动转视角，点「回到船队」或按 Esc 回去）；右上角「寻舟」按名字或 UID 找船。「从 2021 年开始」播放整段航程，「电影模式」去掉界面、从头放映。设置按钮上写着现在的值：「速度」、「视角」（回望／俯瞰／远望）、「画风」（二次元／写实）、「动态」（完整／减少，默认完整）；「逢潮缓行」是开关，亮着就是开：人数大涨或大跌的日子前后放慢播放。底栏右上角的「收起」把底栏收到只剩播放键，挡住船时用，「展开」放回来，页面会记住。点过按钮或按 Tab 到时间轴后，方向键逐日移动，按住 Shift 一次 30 天，空格播放和暂停。
 
 ## 文档导航
