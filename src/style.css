@@ -274,27 +274,46 @@ button.feature:hover{background:rgba(244,166,80,.18)}
 .toon .controls .sep{background:rgba(255,255,255,.4);transform:rotate(10deg)}
 .toon .caption .c-date{justify-self:start;background:var(--ink);padding:2px 16px;margin:-2px 0;font-style:italic;box-shadow:-6px 6px 0 var(--main);transform:skewX(var(--skew))}
 
-/* cut-in when the crew crosses 100, 1,000, 2,000…: a band slides across and out, 二次元 only; with reduced motion it only fades.
+/* cut-in when the crew crosses 100, 1,000, 2,000…: in 二次元 a band slides across and out; with reduced motion it only fades.
    The text lives inside the band, so they turn and move as one and the text always sits on the black stripe, at every
    screen size. All text is white (on black, or on a vermilion chip), and CJK glyphs stay upright: only the shapes slant. */
 .cutin{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden;--main:#e8382b;--ink:#0c0a0b;--h:clamp(150px,26vh,420px)}
-.cutin .band{position:absolute;left:-10%;right:-10%;top:calc(40% - var(--h)/2);height:var(--h);background:var(--main);transform:rotate(-7deg);overflow:hidden}
-.cutin .band::before{content:"";position:absolute;left:0;right:0;top:15%;bottom:17%;background:var(--ink)}
-.cutin .band::after{content:"";position:absolute;left:0;right:0;bottom:6%;height:3px;background:#fff}
-.cutin .txt{position:absolute;top:15%;bottom:17%;left:calc(100%/12 + max(16px,7vw));display:flex;flex-direction:column;justify-content:center;gap:calc(var(--h)*.03);color:#fff}
-.cutin p{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:0 calc(var(--h)*.06)}
-.cutin b{font-family:var(--f-data);font-size:min(calc(var(--h)*.42),15vw);line-height:1;font-weight:500;transform:skewX(var(--skew,-10deg))}
-.cutin span{position:relative;z-index:0;font-family:var(--f-display);font-size:min(calc(var(--h)*.17),7vw);line-height:1.25;font-weight:700;letter-spacing:.08em;padding:0 .45em}
-.cutin span::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--main);transform:skewX(var(--skew,-10deg))}
-.cutin small{font-size:max(13px,calc(var(--h)*.08));font-weight:500;letter-spacing:.2em}
+/* 写实 (2026-10-26): the same words as a quiet title card that fades in and out, a serif figure over 突破 between two
+   hairlines that draw outwards. It sits in the open sea between the readouts and the dock (--t and --b, from
+   src/hud.ts), so it covers neither; a soft dark ellipse behind it keeps it legible over the lit fleet. */
+body:not(.toon) .cutin .band{position:absolute;left:0;right:0;top:var(--t,0px);bottom:var(--b,0px);display:grid;place-items:center}
+body:not(.toon) .cutin .txt{position:relative;z-index:0;display:grid;justify-items:center;gap:calc(var(--h)*.07);white-space:nowrap;color:var(--moon);text-shadow:0 1px 18px rgba(0,0,0,.9)}
+body:not(.toon) .cutin .txt::before{content:"";position:absolute;inset:-45% -40%;z-index:-1;background:radial-gradient(closest-side,rgba(4,6,13,.62),rgba(4,6,13,.4) 55%,rgba(4,6,13,0))}
+body:not(.toon) .cutin p{margin:0;display:grid;justify-items:center;gap:calc(var(--h)*.06)}
+body:not(.toon) .cutin b{font-family:var(--f-display);font-size:min(calc(var(--h)*.4),15vw);line-height:1;font-weight:500;letter-spacing:.04em}
+body:not(.toon) .cutin span{display:flex;align-items:center;gap:1.2em;font-family:var(--f-display);font-size:max(15px,calc(var(--h)*.09));font-weight:500;letter-spacing:.5em;text-indent:.5em;color:var(--gold)}
+body:not(.toon) .cutin span::before,body:not(.toon) .cutin span::after{content:"";width:min(calc(var(--h)*.7),20vw);height:1px;background:linear-gradient(90deg,rgba(242,201,138,0),var(--gold));transform-origin:right}
+body:not(.toon) .cutin span::after{background:linear-gradient(270deg,rgba(242,201,138,0),var(--gold));transform-origin:left}
+body:not(.toon) .cutin small{font-size:max(12px,calc(var(--h)*.065));letter-spacing:.24em;color:var(--mute)}
+body:not(.toon) .cutin.play .band{animation:cutin-fade 1.9s ease both}
+body:not(.toon) .cutin.play span::before,body:not(.toon) .cutin.play span::after{animation:cutin-rule 1.9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cutin-rule{0%,8%{transform:scaleX(0)}45%,100%{transform:none}}
+/* her flagship's name stands at the picture's centre in 回望, right where the card is: the name tags fade with it */
+body:not(.toon) #stage:has(> .cutin.play) > .tag{animation:cutin-dim 1.9s ease both}
+@keyframes cutin-dim{0%,100%{filter:opacity(1)}15%,85%{filter:opacity(0)}}
+.calm body:not(.toon) .cutin.play span::before,.calm body:not(.toon) .cutin.play span::after{animation:none}
+.toon .cutin .band{position:absolute;left:-10%;right:-10%;top:calc(40% - var(--h)/2);height:var(--h);background:var(--main);transform:rotate(-7deg);overflow:hidden}
+.toon .cutin .band::before{content:"";position:absolute;left:0;right:0;top:15%;bottom:17%;background:var(--ink)}
+.toon .cutin .band::after{content:"";position:absolute;left:0;right:0;bottom:6%;height:3px;background:#fff}
+.toon .cutin .txt{position:absolute;top:15%;bottom:17%;left:calc(100%/12 + max(16px,7vw));display:flex;flex-direction:column;justify-content:center;gap:calc(var(--h)*.03);color:#fff}
+.toon .cutin p{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:0 calc(var(--h)*.06)}
+.toon .cutin b{font-family:var(--f-data);font-size:min(calc(var(--h)*.42),15vw);line-height:1;font-weight:500;transform:skewX(var(--skew,-10deg))}
+.toon .cutin span{position:relative;z-index:0;font-family:var(--f-display);font-size:min(calc(var(--h)*.17),7vw);line-height:1.25;font-weight:700;letter-spacing:.08em;padding:0 .45em}
+.toon .cutin span::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--main);transform:skewX(var(--skew,-10deg))}
+.toon .cutin small{font-size:max(13px,calc(var(--h)*.08));font-weight:500;letter-spacing:.2em}
 .cutin i{font-family:var(--f-data);font-style:normal;letter-spacing:.08em}
-.cutin.play .band{animation:cutin-band 1.9s cubic-bezier(.2,.8,.2,1) both}
-.cutin.play .txt{animation:cutin-txt 1.9s cubic-bezier(.2,.8,.2,1) both}
+.toon .cutin.play .band{animation:cutin-band 1.9s cubic-bezier(.2,.8,.2,1) both}
+.toon .cutin.play .txt{animation:cutin-txt 1.9s cubic-bezier(.2,.8,.2,1) both}
 @keyframes cutin-band{0%{transform:translateX(-110%) rotate(-7deg)}14%,82%{transform:translateX(0) rotate(-7deg)}100%{transform:translateX(110%) rotate(-7deg)}}
 @keyframes cutin-txt{0%,8%{transform:translateX(-8vw)}26%,100%{transform:none}}
 @keyframes cutin-fade{0%,100%{opacity:0}15%,85%{opacity:1}}
 /* reduced motion follows the system until the page's switch says otherwise; src/renderer.ts sets .calm on <html> */
-.calm .cutin.play .band{animation-name:cutin-fade}.calm .cutin.play .txt{animation:none}
+.calm .toon .cutin.play .band{animation-name:cutin-fade}.calm .toon .cutin.play .txt{animation:none}
 
 @media (max-width:640px){
   /* the title and the date share the first row, as on wide screens; then the board, then the 星 row with 寻舟 at its end */

@@ -78,14 +78,18 @@ export function drawTimeline(t: number){
   tctx.fillStyle = tok('--moon'); tctx.fillRect(Math.round(x)-0.5, TL.mainTop-6, 1.5, TL.folBot-TL.mainTop+8);
   tctx.beginPath(); tctx.arc(x, ty(DATA.total[dayClamp(Math.floor(t))]), 3.4, 0, Math.PI*2); tctx.fillStyle = tok('--ember'); tctx.fill();
 }
-// the cut-in band (src/style.css) plays once per crossing and hides itself when the band's animation ends.
+// the cut-in (src/style.css) plays once per crossing and hides itself when the band's animation ends.
 // A crossing that comes while the band is still in or holding only changes the text, so the band does not jump back.
+// 二次元's band runs across the screen; 写实's title card sits in the open sea between the readouts and the dock, as
+// they stand when it starts (both hidden in cinema mode, where it centres on the picture).
 const cut = $('cutin'), band = cut.querySelector('.band')!;
 export function cutIn(n: number, d: number){
   cut.querySelector('b')!.textContent = nf(n);
   cut.querySelector('i')!.textContent = fmtDay(d);
   const held = band.getAnimations()[0]?.currentTime;
   if (!cut.hidden && typeof held === 'number' && held < 1500) return;
+  cut.style.setProperty('--t', Math.max(...['.hud', '.board'].map(s => document.querySelector(s)!.getBoundingClientRect().bottom)) + 'px');
+  cut.style.setProperty('--b', $('dock').offsetHeight + 'px');
   cut.hidden = false; cut.classList.remove('play'); void cut.offsetWidth; cut.classList.add('play');
 }
 band.addEventListener('animationend', e => { if (e.target === band){ cut.hidden = true; cut.classList.remove('play'); } });

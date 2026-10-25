@@ -295,7 +295,7 @@ function frame(now: number){
     for (let d = lastDay + 1; d <= dNow; d++){
       const a = DATA.total[d-1], b = DATA.total[d];
       for (let k = fwShells(a, b); k > 0; k--) queueFirework();
-      if (U.uToon.value > 0.5) for (const T of FW_T) if (a < T && b >= T) cutIn(T, d);
+      for (const T of FW_T) if (a < T && b >= T) cutIn(T, d);
     }
   }
   lastDay = dNow;
