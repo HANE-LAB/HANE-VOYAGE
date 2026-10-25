@@ -11,11 +11,11 @@
 ## 工作流与触发条件
 
 有两个工作流：建站的 [deploy.yml](../.github/workflows/deploy.yml)，和每天更新数据的 [update-data.yml](../.github/workflows/update-data.yml)（见下文「更新数据」）。下面先说建站。
-推送 `main` 且改动涉及 `index.html`、`src/`、`data/voyage.json`、`src-tauri/`、`package.json`、`package-lock.json`、`vite.config.ts`、`tsconfig.json` 或工作流时自动发布，也可以手动运行。只更新数据的提交也会重建网站。纯 README 或 `docs/` 修改不会重建网站。
+推送 `main` 且改动涉及 `index.html`、`src/`、`public/`、`data/voyage.json`、`src-tauri/`、`package.json`、`package-lock.json`、`vite.config.ts`、`tsconfig.json` 或工作流时自动发布，也可以手动运行。只更新数据的提交也会重建网站。纯 README 或 `docs/` 修改不会重建网站。
 
 | Job | 运行环境 | 内容 |
 |---|---|---|
-| `build` | Ubuntu | 用 Node.js 24 运行 `npm ci` 和 `npm run build`（先做类型检查），把 `dist/` 上传为 Pages artifact，并把 `dist/index.html` 打成离线包 |
+| `build` | Ubuntu | 用 Node.js 24 运行 `npm ci` 和 `npm run build`（先做类型检查），把 `dist/` 上传为 Pages artifact，并把 `dist/index.html` 和配乐 `senbazuru.m4a` 打成离线包 |
 | `deploy` | Ubuntu | 在 `build` 成功后发布网站 |
 | `desktop` | Windows | 用 Tauri 构建桌面版：免安装的 exe 和 NSIS 安装包。Rust 用 GitHub 机器上预装的版本，依赖和编译结果按 `src-tauri/Cargo.lock` 缓存 |
 | `release` | Ubuntu | 在 `build` 和 `desktop` 都成功后，把三个文件上传到 Release「offline」，替换旧文件，并更新下载说明 |
@@ -34,7 +34,7 @@ GitHub 的定时任务在高峰时可能晚几分钟到一小时开始。仓库�
 
 ## 发布内容
 
-网站只上线 `dist/index.html`。脚本、样式、着色器和 three.js 都打包在这一个文件里；字体从 Google Fonts 加载，没有网络时用系统字体。文档、开发文件和 Python 环境定义不进入网站。
+网站只上线 `dist/index.html` 和配乐 `dist/senbazuru.m4a`。脚本、样式、着色器和 three.js 都打包在 `index.html` 里；配乐由 Vite 从 `public/` 原样复制，观众打开配乐时才下载；字体从 Google Fonts 加载，没有网络时用系统字体。文档、开发文件和 Python 环境定义不进入网站。
 
 Release「offline」里的文件名固定，下载地址是 `https://github.com/<仓库>/releases/download/offline/<文件名>`：
 
@@ -42,6 +42,6 @@ Release「offline」里的文件名固定，下载地址是 `https://github.com/
 |---|---|
 | `HANE-Voyage-setup.exe` | Windows 安装版。装在当前用户下，不需要管理员权限，开始菜单里有快捷方式；缺少 WebView2 时会先下载安装 |
 | `HANE-Voyage.exe` | Windows 免安装版，双击运行。需要 Microsoft Edge WebView2，Windows 11 已自带 |
-| `HANE-Voyage-offline.zip` | 网页离线版，里面是 `index.html`，解压后用 Chrome 或 Edge 打开 |
+| `HANE-Voyage-offline.zip` | 网页离线版，里面是 `index.html` 和配乐 `senbazuru.m4a`，解压后用 Chrome 或 Edge 打开 `index.html` |
 
 两个 exe 都没有代码签名，Windows 可能提示「Windows 已保护你的电脑」，需要点「更多信息」再点「仍要运行」。

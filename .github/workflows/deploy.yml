@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["index.html", "src/**", "data/voyage.json", "src-tauri/**", "package.json", "package-lock.json", "vite.config.ts", "tsconfig.json", ".github/workflows/**"]
+    paths: ["index.html", "src/**", "public/**", "data/voyage.json", "src-tauri/**", "package.json", "package-lock.json", "vite.config.ts", "tsconfig.json", ".github/workflows/**"]
 
 permissions:
   contents: read
@@ -26,7 +26,7 @@ jobs:
           node-version: 24
           cache: npm
       - name: 类型检查并构建单文件页面
-        # 只发布 dist/index.html；文档和开发文件不上线
+        # 只发布 dist/index.html 和配乐 dist/senbazuru.m4a；文档和开发文件不上线
         run: |
           npm ci
           npm run build
@@ -35,7 +35,7 @@ jobs:
         with:
           path: dist
       - name: 打包离线版
-        run: cd dist && zip -q ../HANE-Voyage-offline.zip index.html
+        run: cd dist && zip -q ../HANE-Voyage-offline.zip index.html senbazuru.m4a
       - uses: actions/upload-artifact@v4
         with:
           name: offline

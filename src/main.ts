@@ -112,6 +112,24 @@ styleBtn.addEventListener('click', () => setStyle(STYLE === 'toon' ? 'real' : 't
 const motionBtn = $('motion');
 onMotion(calm => { setValue(motionBtn, calm ? '减少' : '完整'); motionBtn.setAttribute('aria-pressed', String(!calm)); });
 motionBtn.addEventListener('click', () => setMotion(!reduceMotion));
+// 配乐 (2026-10-25): off until the viewer turns it on, since a browser plays nothing before a click anyway. Kevin MacLeod's
+// Senbazuru (the video's theme, CC BY 4.0, credited in the legend) loops from public/, fetched only then, and rests while the page is hidden.
+// Kept per viewer in localStorage; a viewer who left it on hears it again from their first click or key.
+const musicBtn = $('musicBtn');
+let music: HTMLAudioElement | undefined;
+const musicOn = () => musicBtn.getAttribute('aria-pressed') === 'true';
+function setMusic(on: boolean){
+  musicBtn.setAttribute('aria-pressed', String(on));
+  if (!on){ music?.pause(); return; }
+  music ??= Object.assign(new Audio('senbazuru.m4a'), {loop: true});
+  music.play().catch(() => ['pointerdown', 'keydown'].forEach(e => addEventListener(e, () => { if (musicOn()) music!.play().catch(() => {}); }, {once: true})));
+}
+try { if (localStorage.getItem('hane-voyage-music') === 'on') setMusic(true); } catch(e){}
+musicBtn.addEventListener('click', () => {
+  setMusic(!musicOn());
+  try { localStorage.setItem('hane-voyage-music', musicOn() ? 'on' : 'off'); } catch(e){}
+});
+document.addEventListener('visibilitychange', () => { if (music && musicOn()) document.hidden ? music.pause() : music.play().catch(() => {}); });
 window.fleetStyle = s => setStyle(s);
 $('cinema').addEventListener('click', () => setCinema(true));
 $('exitCinema').addEventListener('click', () => setCinema(false));

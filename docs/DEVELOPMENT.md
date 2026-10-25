@@ -16,6 +16,8 @@ npm run preview    # 在 http://127.0.0.1:8771/ 预览构建结果
 
 `dist/index.html` 是一个独立文件：脚本、样式、着色器和 three.js 都在里面，双击就能打开。只有字体从 Google Fonts 加载，没有网络时用系统字体。
 
+配乐 `public/senbazuru.m4a` 不内嵌：内嵌后每个观众都要多下载约 1.5 MB，不开配乐的人也一样。Vite 把它原样复制到 `dist/`，页面在观众点右上角的喇叭时才下载，离线版和桌面版也带着它。它是 Kevin MacLeod 的《Senbazuru》（incompetech.com，CC BY 4.0），也是第二期视频的主旋律。文件截掉了开头 0.5 秒和结尾约 2 秒的静音，末尾加 0.8 秒淡出，所以循环时约半秒后重新开始；响度降到 −22 LUFS，编码成 AAC 96 kbps，共 91.5 秒、1.1 MB。iPhone 的网页不能调音量，所以音量直接做在文件里。署名写在「如何读图」的最后一段。
+
 桌面版用 [Tauri 2](https://v2.tauri.app/) 把同一个 `dist/index.html` 装进 WebView2 窗口。构建桌面版需要 Rust（用 rustup 安装）和 Visual Studio 的 C++ 生成工具；Windows 11 已自带 WebView2。
 
 ```powershell

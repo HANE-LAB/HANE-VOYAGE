@@ -26,7 +26,10 @@
           <div><dt>星（粉丝）</dt><dd class="star" id="sStar">25.5 万</dd></div>
           <div><dt>篝火</dt><dd id="sLamp">旺</dd></div>
         </dl>
-        <button id="findBtn" type="button" aria-expanded="false" aria-controls="find">寻舟</button>
+        <div class="acts">
+          <button id="musicBtn" type="button" aria-pressed="false" aria-label="配乐" title="配乐：Senbazuru · Kevin MacLeod"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 5.5h3L8.5 2v12l-4-3.5h-3Z"/><path class="ic-on" d="M11 5.5q1.6 2.5 0 5M13.2 3.5q3 4.5 0 9"/><path class="ic-off" d="m11 6 4 4m0-4-4 4"/></svg></button>
+          <button id="findBtn" type="button" aria-expanded="false" aria-controls="find">寻舟</button>
+        </div>
       </div>
       <section class="board" aria-label="当天船上的人">
         <div class="b-total"><span class="b-k">大航海 · 当天在船</span><b id="bTotal">7,091</b></div>
@@ -67,7 +70,7 @@
       <li><span class="sw" style="background:#ffb47a"></span><div><b>烟花</b><p>大航海人数突破 100、1000、2000……的那天，还有人数大涨的日子，都会放烟花，涨得越多放得越多，有时会炸成火羽或 Kobuta 的头像。只在播放时出现。船队越大，天边被灯照得越亮。</p></div></li>
       <li><span class="sw" style="background:transparent;border:1px solid var(--mute)"></span><div><b>底部的时间轴</b><p>上面的曲线是每天的大航海人数：橙色是陪伴至今的人，灰蓝是后来离开的人。下面两行是篝火和粉丝数，白点是人工核对过的数字。拖动可以跳到任意一天。</p></div></li>
     </ul>
-    <div class="note">人数和粉丝数来自 vtbs.moe，名单来自最近一次抓取的 B 站大航海名单，开播日来自直播档案。</div>
+    <div class="note">人数和粉丝数来自 vtbs.moe，名单来自最近一次抓取的 B 站大航海名单，开播日来自直播档案。右上角的喇叭打开配乐：Kevin MacLeod《Senbazuru》（incompetech.com），CC BY 4.0。</div>
   </aside>
 
   <aside class="sheet find" id="find" hidden aria-labelledby="findTitle">

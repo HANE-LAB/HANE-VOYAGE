@@ -95,11 +95,17 @@ body{font-family:var(--f-body);-webkit-font-smoothing:antialiased}
 .vt.t2{color:var(--fire);box-shadow:inset 0 0 0 1.5px var(--fire);background:rgba(255,204,133,.16)}
 .vt.t3{color:#1a1006;background:var(--fire)}
 .vt s{display:block;width:5px;height:5px;margin-left:1px;border:1.5px solid currentColor;border-radius:50%;text-decoration:none}
-/* 寻舟 (src/names.ts): the button sits out of the flow beside the 星 and 篝火 readouts, left of them on wide screens and at
-   the right end of their row on phones, so the readout keeps its height and the camera its framing; in 二次元 it is a
-   cell of their strip. The panel is a sheet like the others. */
+/* 寻舟 (src/names.ts) and the 配乐 speaker (main.ts) sit out of the flow beside the 星 and 篝火 readouts, left of them on
+   wide screens and at the right end of their row on phones, so the readout keeps its height and the camera its framing;
+   in 二次元 they are cells of their strip. The speaker is here, not in the dock, because a phone sees this row whole and
+   the dock's row only by scrolling it sideways. The panel is a sheet like the others. */
 .stats-row{position:relative}
-#findBtn{position:absolute;top:50%;right:calc(100% + 14px);transform:translateY(-50%);pointer-events:auto;white-space:nowrap}
+.acts{position:absolute;top:50%;right:calc(100% + 14px);transform:translateY(-50%);display:flex;gap:8px;pointer-events:auto;white-space:nowrap}
+#musicBtn{display:flex;align-items:center}
+#musicBtn .ic{width:16px;height:16px;fill:currentColor;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+#musicBtn .ic path + path{fill:none}
+#musicBtn[aria-pressed="false"] .ic-on,#musicBtn[aria-pressed="true"] .ic-off{display:none}
+#musicBtn[aria-pressed="true"]{color:var(--ember)}
 .sheet.find{bottom:auto;max-height:calc(100% - var(--dock-h,170px) - 144px)}
 .find input{box-sizing:border-box;width:100%;font:inherit;font-size:15px;color:var(--moon);background:rgba(230,232,239,.06);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 .find input:focus-visible{outline:2px solid var(--ember);outline-offset:1px}
@@ -204,11 +210,16 @@ button.feature:hover{background:rgba(244,166,80,.18)}
 .toon .stats{background:var(--ink);padding:6px 14px;margin:-2px 0 -10px;border-left:4px solid var(--main);transform:translateX(-5px) skewX(var(--skew));box-shadow:-6px 6px 0 var(--main)}
 .toon .stats > div{transform:skewX(calc(-1*var(--skew)))}   /* the panel slants, the small labels and numbers stay upright */
 .toon .stats dt{color:var(--main);font-weight:500}
-/* 寻舟 is the strip's first cell: as tall as it, on the same slant, the red edge between them; it turns white while open */
-.toon #findBtn{top:-2px;right:100%;height:calc(100% + 12px);transform:translateX(-5px);padding:0 14px}
-.toon #findBtn::before{inset:0;background:var(--ink);box-shadow:-6px 6px 0 var(--main)}
-.toon #findBtn:hover::before{background:#2a2426}
-.toon #findBtn[aria-expanded="true"],.toon #legendBtn[aria-expanded="true"]{color:var(--ink)}
+/* 配乐 and 寻舟 are the strip's first cells: one black plate as tall as it, on the same slant, red edges between the
+   cells (two plates with a gap read as broken off the strip); 寻舟 turns white while open, the speaker vermilion while it plays */
+.toon .acts{z-index:0;top:-2px;right:100%;height:calc(100% + 12px);transform:translateX(-5px);gap:0}
+.toon .acts::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--ink);box-shadow:-6px 6px 0 var(--main);transform:skewX(var(--skew))}
+.toon .acts button{padding:0 14px}
+.toon .acts button::before{inset:0;background:none}
+.toon .acts button + button::before{box-shadow:inset 4px 0 0 var(--main)}
+.toon .acts button:hover::before{background:#2a2426}
+.toon #musicBtn[aria-pressed="true"]{color:var(--main)}
+.toon #findBtn[aria-expanded="true"],.toon #legendBtn[aria-expanded="true"]{color:var(--ink);background:none;border-color:transparent}
 .toon #findBtn[aria-expanded="true"]::before,.toon #legendBtn[aria-expanded="true"]::before{background:#fff}
 /* the board slants, its text stays upright; the borders stay 1 px (transparent) so it is as tall as in 写实. On wide
    screens the title plate lies over its top edge, as a header tab, and its lower left corner is on the margin. */
@@ -295,7 +306,7 @@ button.feature:hover{background:rgba(244,166,80,.18)}
   .date{font-size:20px}
   .stats{grid-template-columns:repeat(2,auto);justify-content:start;gap:4px 18px}
   .stats-row{grid-column:1 / -1;grid-row:3}
-  #findBtn{right:10px}
+  .acts{right:10px}
   /* the sheets hang from under the title row and cover the board whole, rather than cutting through its big figure */
   .sheet{top:calc(env(safe-area-inset-top,0px) + 58px);max-height:none}
   .sheet.find{max-height:calc(100% - var(--dock-h,170px) - 82px)}
@@ -303,11 +314,12 @@ button.feature:hover{background:rgba(244,166,80,.18)}
   .board{position:static;width:auto;min-width:0;grid-column:1 / -1;grid-row:2}
   /* One column. Panels as wide as it stand upright, edge to edge with the dock and the sheets: slanted at the full width
      the board's corners reached the screen's edges, and inset to the margin it had no room for its lines. The small
-     pieces still slant. Shadows fall straight down; 寻舟 closes the strip, behind a red edge. */
-  .toon .board,.toon .board > *,.toon .stats,.toon .stats > div,.toon #findBtn,.toon #findBtn::before{transform:none}
+     pieces still slant. Shadows fall straight down; 配乐 and 寻舟 close the strip, each behind a red edge. */
+  .toon .board,.toon .board > *,.toon .stats,.toon .stats > div,.toon .acts,.toon .acts::before,.toon .acts button::before{transform:none}
   .toon .board,.toon .stats{box-shadow:0 6px 0 var(--main)}
-  .toon #findBtn{right:0}
-  .toon #findBtn::before{box-shadow:inset 4px 0 0 var(--main)}
+  .toon .acts{right:0}
+  .toon .acts::before{box-shadow:none}
+  .toon .acts button::before{box-shadow:inset 4px 0 0 var(--main)}
   .board .b-total b{font-size:34px}
   #timeline{height:96px}
   button{padding:6px 10px}
@@ -327,4 +339,6 @@ button.feature:hover{background:rgba(244,166,80,.18)}
 @media (max-width:640px) and (max-height:760px){#timeline{height:72px}}
 /* phones narrower than the board needs (about 350 px with web fonts) scale the whole board down, so nothing wraps */
 @media (max-width:389px){.board{zoom:.9}}
+/* under 360 px the 星 row tightens, so 配乐 and 寻舟 still fit at its end clear of 篝火 */
+@media (max-width:359px){.stats{column-gap:10px}.acts button{padding-inline:8px}.toon .acts button{padding-inline:9px}}
 @media (max-width:340px){.board{zoom:.8}}

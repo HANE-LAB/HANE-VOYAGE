@@ -137,7 +137,7 @@ const vetEls = OLD.map(() => {
 const vetW = new Float32Array(OLD.length), boxes: number[][] = [];
 const hideVet = (j: number) => { vetEls[j].style.visibility = 'hidden'; };
 // the readout, the dock and her ship's name keep their room: measured twice a second, as they hardly move
-const UI = [...['.brand', '.readout .date', '.stats-row', '#findBtn', '.board', '#dock', '#dockToggle', '#flagTag'].map(s => document.querySelector(s)), ...document.querySelectorAll('.sheet')].filter(Boolean) as Element[];
+const UI = [...['.brand', '.readout .date', '.stats-row', '.acts','.board', '#dock', '#dockToggle', '#flagTag'].map(s => document.querySelector(s)), ...document.querySelectorAll('.sheet')].filter(Boolean) as Element[];
 let uiBoxes: number[][] = [], uiAge = 0;
 function updateVetTags(d: number){
   if (--uiAge <= 0){
