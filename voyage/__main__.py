@@ -1,4 +1,4 @@
-"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,guard,build,forget,prune}"""
+"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,live,guard,build,forget,prune}"""
 from __future__ import annotations
 
 import argparse
@@ -7,7 +7,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-from . import CST, DATA, ROOT
+from . import CST, DATA
 from . import build as B
 from . import fetch as F
 
@@ -17,14 +17,13 @@ def main(argv=None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(prog="python -m voyage", description=__doc__)
-    parser.add_argument("command", choices=("update", "vtbs", "guard", "build", "forget", "prune"),
-                        help="update 依次运行 vtbs、guard、build；build 只用已下载的数据，不联网；"
+    parser.add_argument("command", choices=("update", "vtbs", "live", "guard", "build", "forget", "prune"),
+                        help="update 依次运行 vtbs、live、guard、build；build 只用已下载的数据，不联网；"
                              "forget 把要求删掉名字的人记进删除名单；prune 给公开仓库的每日更新用：快照只留最近几天，昵称换成哈希")
     parser.add_argument("uids", nargs="*", help="forget 用：要删掉名字的人的 UID；不写就逐行输入")
-    parser.add_argument("--hane", type=Path, default=ROOT.parent / "hane", help="HANE 的目录，只读其中的开播档案")
     parser.add_argument("--data", type=Path, default=DATA, help="数据目录，默认 data/")
     args = parser.parse_args(argv)
-    steps = ("vtbs", "guard", "build") if args.command == "update" else (args.command,)
+    steps = ("vtbs", "live", "guard", "build") if args.command == "update" else (args.command,)
     try:
         if "forget" in steps:
             uids = args.uids or [line.strip() for line in sys.stdin if line.strip()]
@@ -37,6 +36,15 @@ def main(argv=None) -> int:
         if "vtbs" in steps:
             for name, (added, t) in F.update_vtbs(args.data / "raw").items():
                 print(f"vtbs.moe {name}：新增 {added} 条，最新一条在 {datetime.fromtimestamp(t / 1000, CST):%Y-%m-%d %H:%M}")
+        if "live" in steps:
+            try:
+                added, t = F.update_live(args.data)
+                print(f"开播记录：新增 {added} 天，最新一场在 {datetime.fromtimestamp(t / 1000, CST):%Y-%m-%d %H:%M}")
+            except (OSError, ValueError, RuntimeError) as e:
+                if args.command != "update":
+                    raise
+                # 每日更新里，这一项取不到不耽误舰长数和名单；下次取到就补上
+                print(f"::warning::开播记录这次没更新：{e}")
         if "guard" in steps:
             r = F.crawl_guard(args.data / "guard")
             members = r["members"]
@@ -55,7 +63,7 @@ def main(argv=None) -> int:
             gone, kept = B.prune(args.data)
             print(f"快照：删掉 {gone} 份，留下 {kept} 份，昵称都换成了哈希")
         if "build" in steps:
-            out = B.build(args.data, args.hane)
+            out = B.build(args.data)
             print(f"合成 {args.data / 'voyage.json'}：{len(out['total'])} 天，名单 {len(out['named'])} 人"
                   f"（{out['meta']['named_at'] or '还没有快照'}），开播 {sum(out['live'])} 天")
             if by := out["meta"]["named_by"]:

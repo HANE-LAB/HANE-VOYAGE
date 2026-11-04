@@ -1,4 +1,4 @@
-"""离线合成：vtbs.moe 记录、名单快照（含零值回填依据）和 HANE 开播档案 → data/voyage.json。"""
+"""离线合成：vtbs.moe 记录、名单快照（含零值回填依据）和开播记录 → data/voyage.json。"""
 from __future__ import annotations
 
 import hashlib
@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from . import DAY0, UID, day_of, load_json, save_json, save_text
-from .fetch import NAME_MAX, clean_name, removed, snapshot_text
+from .fetch import LIVE_DAYS, NAME_MAX, clean_name, removed, snapshot_text
 
 # 已核实的数字（docs/DATA.md「已核实的数字」），页面画成白点。
 ANCHORS = {
@@ -27,47 +27,31 @@ def iso(day: int) -> str:
     return (DAY0 + timedelta(days=day)).isoformat()
 
 
-def live_days(hane: Path) -> set[int]:
-    """HANE 开播档案（只读）里她开播的日子，按每场的开始时间算。"""
-    path = hane / "data" / "live_sessions.json"
-    sessions = load_json(path, None)
-    if not isinstance(sessions, dict):
-        raise FileNotFoundError(f"找不到 HANE 的开播档案 {path}，用 --hane 指定 HANE 的目录")
-    days = set()
-    for entry in sessions.values():
-        start = (entry.get("item") or {}).get("startDate")
-        if entry.get("uid") == UID and isinstance(start, (int, float)):
-            days.add(day_of(start))
-    return days
+def live_days(data: Path) -> set[int]:
+    """她开播过的日子（fetch.update_live 存的），按每场的开始时间算。"""
+    days = load_json(data / LIVE_DAYS, None)
+    if not isinstance(days, list):
+        raise FileNotFoundError(f"找不到开播记录 {data / LIVE_DAYS}，先运行 live 或 update")
+    return {index(d) for d in days}
 
 
-# 直播档案连续这么多天没有场次，就算档案缺了这一段，改看动态。真的停播时（2021-11、2022-10、2026-02）
-# 她几乎不发预告；档案缺的那几段（最短 7 天）她天天发（2026-10-23 核对，见 docs/DATA.md「开播日」）。
+# 开播记录连续这么多天没有场次，就算记录缺了这一段，改看直播预告。真的停播时（2021-11、2022-10、2026-02）
+# 她几乎不发预告；记录缺的那几段（最短 7 天）她天天发（2026-10-23 核对，见 docs/DATA.md「开播日」）。
 GAP = 7
-# 预告发出后约一小时内开播：23 点多发的「この後から配信」，直播常在第二天零点后才开始。
-NOTICE_LEAD = 3600
 
 
-def notice_days(hane: Path, data: Path) -> set[int]:
-    """HANE 动态档案（只读）里她发了直播预告的日子：HANE 按规则标的「直播预告」，按发出时间加一小时算。
-    HANE 的 posts.json 不在它的公开仓库里，所以有它时把这些日子另存进 data/live_notices.json（只有日期，随数据公开），
-    没有它时（公开仓库的每日更新）读这份。"""
-    path, saved = hane / "data" / "posts.json", data / "live_notices.json"
-    posts = load_json(path, None)
-    if isinstance(posts, list):
-        days = {day_of((p["ts"] + NOTICE_LEAD) * 1000) for p in posts
-                if str(p.get("author_mid")) == str(UID) and "直播预告" in (p.get("tags_rule") or [])
-                and isinstance(p.get("ts"), (int, float))}
-        save_json(saved, sorted(iso(d) for d in days))
-        return days
+def notice_days(data: Path) -> set[int]:
+    """她发了直播预告的日子（data/live_notices.json，只有日期）：2026-10-24 以前算好的定稿。动态要登录才抓得到，
+    所以往后不再增加，以后再有连续 GAP 天没有场次，就算她真的没播。"""
+    saved = data / "live_notices.json"
     cached = load_json(saved, None)
     if not isinstance(cached, list):
-        raise FileNotFoundError(f"找不到 HANE 的动态档案 {path}，也没有 {saved}；用 --hane 指定 HANE 的目录")
+        raise FileNotFoundError(f"找不到直播预告的日子 {saved}")
     return {index(d) for d in cached}
 
 
 def gaps(live: set[int], last: int) -> list[list[int]]:
-    """直播档案连续 GAP 天以上没有场次的区间 [首日, 末日]，第一场之前也算。"""
+    """开播记录连续 GAP 天以上没有场次的区间 [首日, 末日]，第一场之前也算。"""
     out, start = [], 0
     for d in range(last + 2):
         if d in live or d > last:
@@ -220,7 +204,7 @@ def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
     return values, audit
 
 
-def build(data: Path, hane: Path) -> dict:
+def build(data: Path) -> dict:
     guard = load_json(data / "raw" / "vtbs_guard.json", [])
     active = load_json(data / "raw" / "vtbs_active.json", [])
     if not guard or not active:
@@ -242,10 +226,10 @@ def build(data: Path, hane: Path) -> dict:
                    for r in snap["members"]]
         totals = [r for r in guard if r[0] <= snap_ms] + [[snap_ms, max(snap["total"], len(members))]]
         last = day_of(snap_ms)
-    live = live_days(hane)
-    # 档案缺的区间改看动态：那几天发了直播预告就算开播；meta.live_by_posts 记下这些区间，页面标成推断
+    live = live_days(data)
+    # 记录缺的区间改看预告：那几天发了直播预告就算开播；meta.live_by_posts 记下这些区间，页面标成推断
     by_posts = gaps(live, last)
-    notices = notice_days(hane, data)
+    notices = notice_days(data)
     lit = live | {d for a, b in by_posts for d in range(a, b + 1) if d in notices}
     total, total_from = daily(totals, last)
     followers, followers_from = daily(active, last)

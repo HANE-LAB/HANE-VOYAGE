@@ -1,4 +1,4 @@
-"""大航海采集的离线回归：只用很小的假数据，不访问 B 站和 vtbs.moe，也不读 HANE 的真实档案。"""
+"""大航海采集的离线回归：只用很小的假数据，不访问 B 站、vtbs.moe 和 Danmakus。"""
 import io
 import json
 import os
@@ -58,6 +58,16 @@ VTBS_FULL = {
 }
 
 
+def lives(*starts, uid=UID, total=None):
+    """Danmakus 的响应：channel 和全部场次。"""
+    return {"code": 200, "message": "ok", "data": {"channel": {"uId": uid, "totalLiveCount": len(starts) if total is None else total},
+                                                   "lives": [{"liveId": f"l{i}", "startDate": t} for i, t in enumerate(starts)]}}
+
+
+# 北京时间 2 月 6 日 1 点，UTC 还是 5 日：按北京时间算第 3 天
+LIVES = {"ukamnads": lives(ms(2021, 2, 4, 23), ms(2021, 2, 6, 1))}
+
+
 class Net:
     """按网址片段返回假响应，记下请求过的地址和请求头。"""
 
@@ -79,19 +89,10 @@ class VoyageTests(unittest.TestCase):
         self.root = Path(tempfile.mkdtemp(dir=sandbox))
         self.addCleanup(shutil.rmtree, self.root)
         self.data = self.root / "data"
-        self.hane = self.root / "hane"
-        self.archive = self.hane / "data" / "live_sessions.json"
-        self.archive.parent.mkdir(parents=True)
-        self.archive.write_text(json.dumps({
-            "a": {"uid": UID, "item": {"startDate": ms(2021, 2, 4, 23)}, "first_seen": 1, "last_seen": 2},
-            # 北京时间 2 月 6 日 1 点，UTC 还是 5 日：按北京时间算第 3 天
-            "b": {"uid": UID, "item": {"startDate": ms(2021, 2, 6, 1)}, "first_seen": 1, "last_seen": 2},
-            "c": {"uid": 999, "item": {"startDate": ms(2021, 2, 5)}, "first_seen": 1, "last_seen": 2},
-        }), encoding="utf-8")
-        (self.hane / "data" / "posts.json").write_text(json.dumps([
-            # 她的直播预告；档案在这里不缺，所以不影响开播日
-            {"author_mid": str(UID), "ts": ms(2021, 2, 8, 23, 30) // 1000, "tags_rule": ["直播预告"]},
-        ]), encoding="utf-8")
+        self.data.mkdir()
+        (self.data / F.LIVE_DAYS).write_text(json.dumps(["2021-02-04", "2021-02-06"]), encoding="utf-8")
+        # 她的直播预告；记录在这里不缺，所以不影响开播日
+        (self.data / "live_notices.json").write_text(json.dumps(["2021-02-09"]), encoding="utf-8")
         for p in (patch.object(F, "pause", lambda: None),
                   patch.object(F, "LOCAL_CONFIG", self.root / "config.local.toml"),
                   patch.dict(os.environ, {"BILI_SESSDATA": "", "BILI_BUVID3": ""})):
@@ -216,18 +217,18 @@ class VoyageTests(unittest.TestCase):
         with patch.object(F, "get_json", Net(VTBS_FULL)):
             F.update_vtbs(self.data / "raw")
         self.crawl()
-        v = B.build(self.data, self.hane)
+        v = B.build(self.data)
         self.assertEqual(sorted(n["name"] for n in v["named"]), ["假名丙", "假名乙", "假名甲"])
         # 名单是后来加的：不重新抓，build 也按 id 去掉
         (self.data / F.REMOVALS).write_text(json.dumps([F.uid_digest(C).hex()]), encoding="utf-8")
-        v = B.build(self.data, self.hane)
+        v = B.build(self.data)
         self.assertEqual({n["id"]: n["name"] for n in v["named"]}[F.uid_digest(C)[:3].hex()], "")
         # 2026-10-24 以前的快照没有昵称这一列
         old = self.data / "guard" / "20210211-090000.json"
         old.write_text(F.snapshot_text("2021-02-11T09:00:00+08:00", 3,
                                        [["a1b2c3", 3, 5, 7], ["a1b2c4", 2, 9, 6], ["a1b2c5", 1, 1, 8]],
                                        ["id", "level", "medal", "start"]), encoding="utf-8")
-        self.assertEqual([n["name"] for n in B.build(self.data, self.hane)["named"]], ["", "", ""])
+        self.assertEqual([n["name"] for n in B.build(self.data)["named"]], ["", "", ""])
 
     def test_page_hashes_a_uid_the_way_the_crawler_does(self):
         # 页面在浏览器里用 WebCrypto 算观众输入的 UID（src/uid.ts）；Node 有同样的 WebCrypto，能直接跑这个文件
@@ -281,13 +282,11 @@ class VoyageTests(unittest.TestCase):
         with patch.object(F, "get_json", Net(VTBS_FULL)):
             F.update_vtbs(self.data / "raw")
         self.crawl()
-        before = self.archive.read_bytes()
-        v = B.build(self.data, self.hane)
-        self.assertEqual(self.archive.read_bytes(), before)  # HANE 的档案只读
+        v = B.build(self.data)
         # 第 0–7 天。2 月 5 日两条取晚的那条；第 7 天用快照里 B 站的总数；粉丝第一条之前沿用第一条。
         self.assertEqual(v["total"], [0, 0, 1, 1, 1, 1, 1, 3])
         self.assertEqual(v["followers"], [1700, 1700, 1700, 1750, 1750, 1750, 1750, 1750])
-        self.assertEqual(v["live"], [0, 1, 0, 1, 0, 0, 0, 0])  # 第 6 天的预告不算：档案没有缺这一段
+        self.assertEqual(v["live"], [0, 1, 0, 1, 0, 0, 0, 0])  # 第 6 天的预告不算：记录没有缺这一段
         self.assertEqual(v["meta"]["live_by_posts"], [])
         # 上舰日 = 7 − 陪伴天数 + 1，两位老成员算出来在第 0 天以前，可第 0、1 天船队是 0 人，
         # 确认不了，往后挪 30 天也挪不进第 0–7 天，算快照当天（第 7 天）。0 天无历史依据时是未知。
@@ -319,7 +318,7 @@ class VoyageTests(unittest.TestCase):
         for j, s in enumerate(snaps):
             F.save_text(self.data / "guard" / f"{j}.json", json.dumps(s))
         saved = {p: p.read_bytes() for p in (self.data / "guard").glob("*.json")}
-        v = B.build(self.data, self.hane)
+        v = B.build(self.data)
         self.assertEqual([n["acc"] for n in v["named"]], values)
         self.assertEqual(v["meta"]["accompany"], audit)
         self.assertEqual(v["total"][-1], 4)
@@ -364,26 +363,46 @@ class VoyageTests(unittest.TestCase):
                 B.accompany([bad, latest])
 
     def test_long_stretches_without_archived_lives_follow_the_notices(self):
-        # 连续 7 天以上档案没有场次才算缺；第一场之前也算，最后一段到最后一天为止。
+        # 连续 7 天以上没有场次才算缺；第一场之前也算，最后一段到最后一天为止。
         self.assertEqual(B.gaps({3, 12}, 20), [[4, 11], [13, 20]])
         self.assertEqual(B.gaps({7, 9}, 14), [[0, 6]])
         self.assertEqual(B.gaps(set(), 3), [])
-        posts = self.hane / "data" / "posts.json"
-        posts.write_text(json.dumps([
-            {"author_mid": str(UID), "ts": ms(2021, 2, 5, 23, 30) // 1000, "tags_rule": ["直播预告"]},  # 零点后开播，算第 3 天
-            {"author_mid": str(UID), "ts": ms(2021, 2, 7, 21, 55) // 1000, "tags_rule": ["直播预告", "游戏"]},  # 第 4 天
-            {"author_mid": str(UID), "ts": ms(2021, 2, 9, 20) // 1000, "tags_rule": ["日常/杂谈"]},
-            {"author_mid": "999", "ts": ms(2021, 2, 10, 20) // 1000, "tags_rule": ["直播预告"]},
-        ]), encoding="utf-8")
-        self.assertEqual(B.notice_days(self.hane, self.data), {3, 4})
-        # 没有 HANE 的 posts.json 时（公开仓库的每日更新）读上次另存的日子；两样都没有才停止
-        self.assertEqual(json.loads((self.data / "live_notices.json").read_text(encoding="utf-8")),
-                         ["2021-02-06", "2021-02-07"])
-        posts.unlink()
-        self.assertEqual(B.notice_days(self.hane, self.data), {3, 4})
-        (self.data / "live_notices.json").unlink()
-        with self.assertRaisesRegex(FileNotFoundError, "--hane"):
-            B.notice_days(self.hane, self.data)
+        notices = self.data / "live_notices.json"
+        notices.write_text(json.dumps(["2021-02-06", "2021-02-07"]), encoding="utf-8")
+        self.assertEqual(B.notice_days(self.data), {3, 4})
+        notices.unlink()
+        with self.assertRaisesRegex(FileNotFoundError, "直播预告"):
+            B.notice_days(self.data)
+
+    def test_live_days_come_from_the_public_source_and_are_never_lost(self):
+        path = self.data / F.LIVE_DAYS
+        path.unlink()
+        with patch.object(F, "get_json", Net(LIVES)):
+            added, last = F.update_live(self.data)
+        self.assertEqual((added, last), (2, ms(2021, 2, 6, 1)))
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")), ["2021-02-04", "2021-02-06"])
+        # 来源不再给的日子留着，新的接上；同一天两场算一天
+        with patch.object(F, "get_json", Net({"ukamnads": lives(ms(2021, 2, 6, 1), ms(2021, 2, 8), ms(2021, 2, 8, 23))})):
+            self.assertEqual(F.update_live(self.data)[0], 1)
+        self.assertEqual(json.loads(path.read_text(encoding="utf-8")), ["2021-02-04", "2021-02-06", "2021-02-08"])
+        # 响应不对就停，已有的文件不动
+        before = path.read_bytes()
+        for name, body in {"不是她": lives(ms(2021, 2, 9), uid=999), "场次对不上": lives(ms(2021, 2, 9), total=5), "是空的": lives(),
+                           "失败": {"code": 500, "message": "error"}, "结构变了": {"code": 200, "data": {"lives": []}},
+                           "时间不对": lives("2021-02-09"), "不是字典": [1]}.items():
+            with self.subTest(name), patch.object(F, "get_json", Net({"ukamnads": body})), self.assertRaises(ValueError):
+                F.update_live(self.data)
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_update_goes_on_when_only_the_live_days_fail(self):
+        # 舰长数和名单不受影响，开播日保持上次的，留一条警告；单独运行 live 时才算失败
+        out = io.StringIO()
+        with patch.object(F, "get_json", Net({**VTBS_FULL, **GUARD_PAGES, "ukamnads": {"code": 500}})), redirect_stdout(out), redirect_stderr(out):
+            self.assertEqual(main(["update", "--data", str(self.data)]), 0, out.getvalue())
+            self.assertEqual(main(["live", "--data", str(self.data)]), 1)
+        self.assertIn("::warning::", out.getvalue())
+        self.assertEqual(json.loads((self.data / "voyage.json").read_text(encoding="utf-8"))["live"][:4], [0, 1, 0, 1])
+        self.assertEqual(json.loads((self.data / F.LIVE_DAYS).read_text(encoding="utf-8")), ["2021-02-04", "2021-02-06"])
 
     def test_prune_keeps_a_week_of_hashed_snapshots_and_backfill_still_works(self):
         # 公开仓库的每日更新：Actions 缓存里只留最近 7 天的快照，昵称换成哈希；回填和改名的核对照样能做
@@ -409,7 +428,7 @@ class VoyageTests(unittest.TestCase):
         with patch.object(F, "get_json", Net(VTBS_FULL)):
             F.update_vtbs(self.data / "raw")
         with self.assertRaisesRegex(ValueError, "哈希"):
-            B.build(self.data, self.hane)
+            B.build(self.data)
 
     def test_named_ships_never_outnumber_the_fleet_and_old_ships_come_first(self):
         # 第 0–44 天：1、2 人，然后 3 人，第 10–34 天跌到 2 人，第 35 天起暴涨。
@@ -426,12 +445,15 @@ class VoyageTests(unittest.TestCase):
 
     def test_build_refuses_missing_sources_and_bad_output(self):
         with self.assertRaisesRegex(FileNotFoundError, "vtbs"):
-            B.build(self.data, self.hane)
+            B.build(self.data)
         with patch.object(F, "get_json", Net(VTBS_FULL)):
             F.update_vtbs(self.data / "raw")
-        with self.assertRaisesRegex(FileNotFoundError, "--hane"):
-            B.build(self.data, self.root / "nowhere")
-        v = B.build(self.data, self.hane)  # 还没有快照时名单为空，其余照常合成
+        days = (self.data / F.LIVE_DAYS).read_bytes()
+        (self.data / F.LIVE_DAYS).unlink()
+        with self.assertRaisesRegex(FileNotFoundError, "开播记录"):
+            B.build(self.data)
+        (self.data / F.LIVE_DAYS).write_bytes(days)
+        v = B.build(self.data)  # 还没有快照时名单为空，其余照常合成
         self.assertEqual((v["named"], v["meta"]["named_at"]), ([], None))
         good = {"start": 3, "level": 3, "medal": 2, "id": "a1b2c3", "acc": 4, "name": "假名"}  # 第 3 天船队有 1 人
         B.check({**v, "named": [good]})
@@ -451,16 +473,16 @@ class VoyageTests(unittest.TestCase):
                 B.check(bad)
 
     def test_update_runs_offline_and_never_prints_or_saves_the_cookie(self):
-        net = Net({**VTBS_FULL, **GUARD_PAGES})
+        net = Net({**VTBS_FULL, **GUARD_PAGES, **LIVES})
         out = io.StringIO()
         with patch.dict(os.environ, {"BILI_SESSDATA": "SECRET-SESSDATA"}), patch.object(F, "get_json", net), \
                 redirect_stdout(out), redirect_stderr(out):
-            code = main(["update", "--data", str(self.data), "--hane", str(self.hane)])
+            code = main(["update", "--data", str(self.data)])
         self.assertEqual(code, 0, out.getvalue())
         B.check(json.loads((self.data / "voyage.json").read_text(encoding="utf-8")))
         bili = [h.get("Cookie", "") for u, h in net.calls if "bilibili" in u]
         self.assertTrue(bili and all("SESSDATA=SECRET-SESSDATA" in c for c in bili))
-        self.assertFalse(any("Cookie" in h for u, h in net.calls if "vtbs" in u))
+        self.assertFalse(any("Cookie" in h for u, h in net.calls if "vtbs" in u or "ukamnads" in u))
         for secret in ("SECRET", str(A), "假名"):
             self.assertNotIn(secret, out.getvalue())  # 昵称存进快照和页面数据，但不打印
         for secret in ("SECRET", str(A)):

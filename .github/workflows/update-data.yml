@@ -1,6 +1,6 @@
 name: 每日更新大航海数据
 
-# 每天日本时间 03:00（UTC 18:00）抓一次 vtbs.moe 和 B 站直播间的大航海名单，合成 data/voyage.json 提交到 main，
+# 每天日本时间 03:00（UTC 18:00）抓一次 vtbs.moe、Danmakus 的开播记录和 B 站直播间的大航海名单，合成 data/voyage.json 提交到 main，
 # 再触发「发布 HANE Voyage」重建网站、离线包和桌面版。名单接口不用登录，这里不放任何凭据。
 # 名单快照只存在 Actions 缓存里：留最近 7 天，昵称换成哈希（python -m voyage prune），只用来补陪伴天数为 0 的人。
 # 有人要求删掉名字时，删除名单放在仓库的 secret NAME_REMOVALS 里。失败时不提交，网站保留前一天的数据。
@@ -43,16 +43,12 @@ jobs:
           path: data/guard
           key: guard-${{ github.run_id }}
           restore-keys: guard-
-      - name: 取 HANE 公开的开播档案
-        run: |
-          mkdir -p hane/data
-          curl -fsSL --retry 3 -o hane/data/live_sessions.json https://raw.githubusercontent.com/HANE-LAB/HANE/main/data/live_sessions.json
       - name: 采集并合成
         env:
           NAME_REMOVALS: ${{ secrets.NAME_REMOVALS }}
         run: |
           if [ -n "$NAME_REMOVALS" ]; then printf '%s' "$NAME_REMOVALS" > data/name-removals.json; fi
-          python -X utf8 -m voyage update --hane hane
+          python -X utf8 -m voyage update
       - name: 快照只留 7 天，昵称换成哈希
         run: python -X utf8 -m voyage prune
       - name: 存回缓存
@@ -66,7 +62,7 @@ jobs:
         run: |
           git config user.name "HANE-LAB"
           git config user.email "343091130+HANE-LAB@users.noreply.github.com"
-          git add data/voyage.json
+          git add data/voyage.json data/live_days.json
           if git diff --cached --quiet; then echo "数据没有变化"; exit 0; fi
           git commit -m "data: $(TZ=Asia/Tokyo date +%F) 的大航海名单"
           git pull --rebase origin main

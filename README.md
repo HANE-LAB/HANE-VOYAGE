@@ -4,7 +4,7 @@
 
 [在线浏览](https://hane-lab.github.io/HANE-VOYAGE/) · [公开源码](https://github.com/HANE-LAB/HANE-VOYAGE) · [离线版下载](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-offline.zip) · [Windows 桌面版](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-setup.exe)
 
-数据每天日本时间 03:00 由 GitHub Actions 自动更新：vtbs.moe 的每日人数和粉丝数，加上 B 站直播间的大航海名单，不需要登录。来源和算法见[数据](docs/DATA.md)。
+数据每天日本时间 03:00 由 GitHub Actions 自动更新：vtbs.moe 的每日人数和粉丝数、Danmakus 的开播记录，加上 B 站直播间的大航海名单，不需要登录。来源和算法见[数据](docs/DATA.md)。
 
 ## 使用方式
 

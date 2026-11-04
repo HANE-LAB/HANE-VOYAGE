@@ -26,7 +26,7 @@ Windows 上第一次构建要编译全部 Rust 依赖，约需 10 到 20 分钟�
 
 ## 更新数据
 
-数据每天自动更新：公开仓库每天日本时间 03:00（UTC 18:00）运行 [update-data.yml](../.github/workflows/update-data.yml)，抓 vtbs.moe 的每日人数和粉丝数、翻一遍当前的大航海名单（含昵称），合成 `data/voyage.json` 提交到 `main`，再触发建站。名单接口不用登录，不需要配置任何 Cookie。在 Actions 里点「每日更新大航海数据」的 Run workflow 可以立刻更新一次。步骤、快照怎么存、失败时怎样，见 [数据](DATA.md#每日自动更新)。
+数据每天自动更新：公开仓库每天日本时间 03:00（UTC 18:00）运行 [update-data.yml](../.github/workflows/update-data.yml)，抓 vtbs.moe 的每日人数和粉丝数、Danmakus 的开播记录，翻一遍当前的大航海名单（含昵称），合成 `data/voyage.json` 提交到 `main`，再触发建站。名单接口不用登录，不需要配置任何 Cookie。在 Actions 里点「每日更新大航海数据」的 Run workflow 可以立刻更新一次。步骤、快照怎么存、失败时怎样，见 [数据](DATA.md#每日自动更新)。
 
 GitHub 的定时任务在高峰时可能晚几分钟到一小时开始。仓库连续 60 天没有活动时，GitHub 会停掉定时任务；每天的数据提交本身就算活动，所以正常不会停。失败时 GitHub 会给仓库所有者发邮件。
 

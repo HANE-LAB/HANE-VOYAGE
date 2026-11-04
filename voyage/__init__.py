@@ -1,4 +1,4 @@
-"""HANE Voyage 的大航海数据采集：vtbs.moe 每日总数、B 站在册名单、HANE 开播档案，合成 data/voyage.json。"""
+"""HANE Voyage 的大航海数据采集：vtbs.moe 每日总数、B 站在册名单、Danmakus 开播记录，合成 data/voyage.json。"""
 from __future__ import annotations
 
 import json

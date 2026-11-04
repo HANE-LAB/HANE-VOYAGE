@@ -1,4 +1,4 @@
-"""联网采集：vtbs.moe 的大航海与粉丝记录、B 站在册名单。update、vtbs、guard 命令联网；forget 只改本机的删除名单和快照。"""
+"""联网采集：vtbs.moe 的大航海与粉丝记录、Danmakus 的开播记录、B 站在册名单。update、vtbs、live、guard 命令联网；forget 只改本机的删除名单和快照。"""
 from __future__ import annotations
 
 import hashlib
@@ -24,6 +24,8 @@ LOCAL_CONFIG = ROOT / "config.local.toml"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36")
 THROTTLED = (-352, -412, -799, -509)
+LIVES = f"https://api.ukamnads.icu/api/v2/channel?uid={UID}"   # nailv 的火羽页面用的 Danmakus 公开接口，不用登录
+LIVE_DAYS = "live_days.json"
 
 
 class BiliError(RuntimeError):
@@ -103,6 +105,29 @@ def update_vtbs(raw: Path) -> dict:
         save_json(path, old + tail)
         added[name] = (len(tail), new[-1][0])
     return added
+
+
+# ── 开播记录 ─────────────────────────────────────────────────
+def update_live(data: Path) -> tuple[int, int]:
+    """她开播过的日子（只有日期，北京时间）接着上次的存进 data/live_days.json，来源不再给的日子也留着。
+    响应不对就抛出去，不动已有的文件。返回 (新增几天, 最新一场的毫秒时间)。"""
+    body = get_json(LIVES)
+    info = body.get("data") if isinstance(body, dict) and body.get("code") == 200 else None
+    channel, lives = (info.get("channel"), info.get("lives")) if isinstance(info, dict) else (None, None)
+    if not isinstance(channel, dict) or not isinstance(lives, list) or not lives:
+        raise ValueError("Danmakus 的响应结构变了，保留本机数据")
+    if str(channel.get("uId")) != str(UID):
+        raise ValueError("Danmakus 返回的不是她的记录，保留本机数据")
+    if channel.get("totalLiveCount") != len(lives):
+        raise ValueError(f"Danmakus 的场次对不上：{len(lives)} 场，来源说有 {channel.get('totalLiveCount')} 场，保留本机数据")
+    starts = [it.get("startDate") if isinstance(it, dict) else None for it in lives]
+    if not all(isinstance(t, (int, float)) and 946684800000 <= t < 4102444800000 for t in starts):
+        raise ValueError("Danmakus 的开播时间格式变了，保留本机数据")
+    path = data / LIVE_DAYS
+    old = load_json(path, [])
+    days = sorted(set(old) | {datetime.fromtimestamp(t / 1000, CST).date().isoformat() for t in starts})
+    save_json(path, days)
+    return len(days) - len(old), max(starts)
 
 
 # ── B 站在册名单 ──────────────────────────────────────────────

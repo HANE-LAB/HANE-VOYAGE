@@ -5,7 +5,7 @@ import voyage from '../data/voyage.json';
    {
      total:  [int per day],          // 大航海总数 at end of day   (vtbs.moe bulkGuard)
      followers:[int per day],        // 粉丝数                      (vtbs.moe bulkActive)
-     live:   [0/1 per day],          // 当天开播                     (HANE 直播档案；档案缺的区间按她的直播预告推断)
+     live:   [0/1 per day],          // 当天开播                     (开播记录；记录缺的区间按她的直播预告推断)
      named:  [{start, level, medal, id, acc, name}] // 今天名单：start = 这条船开始有名字的那天
                                      // level 1总督 2提督 3舰长, medal 粉丝牌等级, id UID 的哈希（按 UID 找船时比对）
                                      // acc 最后一天的陪伴天数（B 站正值或历史回填），null 是未知
