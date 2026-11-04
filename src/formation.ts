@@ -72,7 +72,8 @@ const ETAIL = new Float32Array(NDAYS);   // the farthest berth on the rachis tak
 /* =====================================================================
    THE PLAN: where every ship is on every day, worked out once.
    Named ships keep one berth for good: the k-th 舰长 by boarding day berth k, the e-th 提督/总督 row e.
-   The anonymous lights are people who were on board then and left later; the data only says how many each day.
+   The anonymous lights are people on board then who are not on today's list: most left later, a few came back and cannot
+   be placed; the data only says how many each day.
    Each light gets its own berth when it boards and keeps it. When the count drops, the lights at the highest
    berths (at the feather's edge) leave; when it rises, new lights take the lowest free berths, on a barb no light
    left from in the last COOL days if there is one, so one does not come in where another is still sailing out.

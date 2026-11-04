@@ -52,7 +52,7 @@ function about(k: number, d: number){
 }
 function tagHTML(i: number, d: number){
   const k = KOF[i];
-  if (k < 0) return '<b class="anon">无名之舰</b><small>那天在船上，后来离开了，或不想留名</small>';
+  if (k < 0) return '<b class="anon">无名之舰</b><small>那天在船上，今天的名单对不上</small>';
   const [top, below] = about(k, d);
   return `<b>${top}</b><small>${below}</small>`;
 }

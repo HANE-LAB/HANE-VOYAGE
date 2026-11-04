@@ -115,5 +115,5 @@ export function updateHud(t: number, f: FleetLayout){
   // the bonfire's brightness (src/data.ts LAMP) in one word
   const lamp = lampAt(t);
   setText('sLamp', lamp >= 0.85 ? '旺' : lamp >= 0.5 ? '燃' : lamp >= 0.2 ? '微' : '熄');
-  setText('cSub', `大航海 ${nf(f.total)} · 陪伴至今 ${nf(f.Np)}` + (VET_N[2][d] ? `（一年以上 ${nf(VET_N[2][d])}）` : '') + (f.A ? ` · 后来离开 ${nf(f.A)}` : ''));
+  setText('cSub', `大航海 ${nf(f.total)} · 陪伴至今 ${nf(f.Np)}` + (VET_N[2][d] ? `（一年以上 ${nf(VET_N[2][d])}）` : '') + (f.A ? ` · 无名之舰 ${nf(f.A)}` : ''));
 }
