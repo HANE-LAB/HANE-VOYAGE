@@ -325,15 +325,13 @@ class VoyageTests(unittest.TestCase):
         self.assertEqual(v["named"][-1]["start"], 7)
         self.assertEqual({p: p.read_bytes() for p in saved}, saved)
 
-    def test_accompany_skips_collisions_names_conflicts_absences_and_old_evidence(self):
+    def test_accompany_skips_collisions_conflicts_absences_and_old_evidence(self):
         old = snapshot(5, [("aaaaaa", 11, "甲")])
         latest = snapshot(7, [("aaaaaa", 0, "甲")])
         cases = [
             ([snapshot(5, [("aaaaaa", 11, "甲"), ("aaaaaa", 30, "乙")]), latest], "ambiguous_id"),
             ([old, snapshot(7, [("aaaaaa", 0, "甲"), ("aaaaaa", 0, "乙")])], "ambiguous_id"),
             ([old, snapshot(6, [("aaaaaa", 0, "甲"), ("aaaaaa", 0, "乙")]), latest], "ambiguous_id"),
-            ([old, snapshot(7, [("aaaaaa", 0, "改名")])], "name_changed"),
-            ([old, snapshot(6, [("aaaaaa", 12, "改名")]), latest], "name_changed"),
             ([old, snapshot(6, [("aaaaaa", 13, "甲")]), latest], "conflicting_days"),
             ([old, snapshot(6, []), latest], "no_history"),
             ([old, snapshot(13, [("aaaaaa", 0, "甲")])], "no_history"),
@@ -349,6 +347,16 @@ class VoyageTests(unittest.TestCase):
                                       snapshot(8, [("aaaaaa", 0, "甲")])])[0], [3])
         # 哈希碰撞不改变最新的正值，也不合并两个人。
         self.assertEqual(B.accompany([old, snapshot(7, [("aaaaaa", 13, "甲"), ("aaaaaa", 0, "乙")])])[0], [13, None])
+
+    def test_accompany_a_new_name_is_the_same_person(self):
+        # 认人只看 id：最新一份改了名、中间一份改了名又改回去，都照常按旧记录推算
+        old = snapshot(5, [("aaaaaa", 11, "甲")])
+        for snaps, source in (([old, snapshot(7, [("aaaaaa", 0, "改名")])], 0),
+                              ([old, snapshot(6, [("aaaaaa", 12, "改名")]), snapshot(7, [("aaaaaa", 0, "甲")])], 1)):
+            with self.subTest(snapshots=snaps):
+                values, audit = B.accompany(snaps)
+                self.assertEqual(values, [13])
+                self.assertEqual(audit, {"backfilled": [{"index": 0, "raw": 0, "value": 13, "from": snaps[source]["time"]}], "unknown": []})
 
     def test_accompany_uses_beijing_calendar_days_and_rejects_bad_history(self):
         old = snapshot(5, [("aaaaaa", 11, "甲")])
@@ -405,7 +413,7 @@ class VoyageTests(unittest.TestCase):
         self.assertEqual(json.loads((self.data / F.LIVE_DAYS).read_text(encoding="utf-8")), ["2021-02-04", "2021-02-06"])
 
     def test_prune_keeps_a_week_of_hashed_snapshots_and_backfill_still_works(self):
-        # 公开仓库的每日更新：Actions 缓存里只留最近 7 天的快照，昵称换成哈希；回填和改名的核对照样能做
+        # 公开仓库的每日更新：Actions 缓存里只留最近 7 天的快照，昵称换成哈希；回填照样能做
         guard = self.data / "guard"
         for s in (snapshot(0, [("aaaaaa", 3, "甲")]),  # 比最新一份早 8 天，删掉
                   snapshot(6, [("aaaaaa", 9, "甲"), ("bbbbbb", 4, "乙")]),
@@ -421,8 +429,8 @@ class VoyageTests(unittest.TestCase):
         self.assertEqual([json.loads(p.read_text(encoding="utf-8")) for p in sorted(guard.glob("*.json"))], kept)
         latest = snapshot(9, [("aaaaaa", 0, "甲"), ("bbbbbb", 0, "改名")])
         values, audit = B.accompany(kept + [latest])
-        self.assertEqual(values, [12, None])  # 甲按第 6 天的 9 天推到第 9 天；乙改了名，不认
-        self.assertEqual(audit["unknown"], [{"index": 1, "reason": "name_changed"}])
+        self.assertEqual(values, [12, 7])  # 甲按第 6 天的 9 天推到第 9 天；乙改了名还是乙，按第 8 天的 6 天推到第 9 天
+        self.assertEqual(audit["unknown"], [])
         # 最新一份不能是哈希的：页面的名字从它来
         F.save_text(guard / "2021-02-12.json", F.snapshot_text(latest["time"], 2, latest["members"], latest["columns"], hashed=True))
         with patch.object(F, "get_json", Net(VTBS_FULL)):

@@ -121,8 +121,7 @@ ACCOMPANY_LOOKBACK = 7  # 只补最近一周；快照之间仍可能短暂离舰
 
 
 def name_key(name: str, hashed: bool) -> str:
-    """比较两份快照的昵称时用的键。公开仓库的每日更新只在 Actions 缓存里留最近几天的快照，留之前把昵称换成哈希
-    （prune），所以比较时把明文昵称也算成同样的哈希。"""
+    """快照存进 Actions 缓存之前，昵称换成这个哈希（prune）。"""
     if not name or hashed:
         return name
     return "#" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:16]
@@ -130,7 +129,7 @@ def name_key(name: str, hashed: bool) -> str:
 
 def prune(data: Path, keep: int = ACCOMPANY_LOOKBACK) -> tuple[int, int]:
     """只给公开仓库的每日更新用：删掉比最新一份早 keep 天以上的快照，其余的昵称换成哈希，再存进 Actions 缓存。
-    昵称不进缓存，回填只要哈希就能核对同一个人。返回 (删掉的份数, 留下的份数)。"""
+    昵称不进缓存。返回 (删掉的份数, 留下的份数)。"""
     paths = sorted((data / "guard").glob("*.json"))
     snaps = [load_json(path, None) for path in paths]
     if not snaps:
@@ -149,7 +148,8 @@ def prune(data: Path, keep: int = ACCOMPANY_LOOKBACK) -> tuple[int, int]:
 
 
 def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
-    """只回填最新名单的零值；按 id 分组保留碰撞，原快照不改。audit 的 index 是最新名单的行号（从 0 起）。"""
+    """只回填最新名单的零值；按 id 分组保留碰撞，原快照不改。audit 的 index 是最新名单的行号（从 0 起）。
+    认人只看 id，不比昵称：改了名还是同一个人（docs/DATA.md「2026-11-05 的核对」）。"""
     latest = snapshots[-1]
     last = day_of(datetime.fromisoformat(latest["time"]).timestamp() * 1000)
     history, ambiguous = [], set()
@@ -166,7 +166,7 @@ def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
                 raise ValueError("名单快照的 id、陪伴天数或昵称格式不合法")
             groups[r["id"]].append(r)
         ambiguous.update(i for i, rows in groups.items() if len(rows) > 1)
-        history.append((snap["time"], day, groups, bool(snap.get("hashed"))))
+        history.append((snap["time"], day, groups))
     values, audit = [], {"backfilled": [], "unknown": []}
     for k, row in enumerate(latest["members"]):
         current = dict(zip(latest["columns"], row))
@@ -178,17 +178,11 @@ def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
         if current["id"] in ambiguous:
             reason = "ambiguous_id"
         else:
-            name = name_key(current.get("name", ""), bool(latest.get("hashed")))
-            for time, day, groups, hashed in reversed(history[:-1]):
+            for time, day, groups in reversed(history[:-1]):
                 rows = groups.get(current["id"], [])
                 if not rows:
                     break  # 更早的任期不跨过缺席；已有更近的正值仍可用。
                 previous = rows[0]
-                old_name = name_key(previous.get("name", ""), hashed)
-                if name and old_name and name != old_name:
-                    value, reason = None, "name_changed"
-                    break
-                name = name or old_name
                 if day - previous["start"] > 0:
                     projected = last - previous["start"]
                     if value is not None and value != projected:
