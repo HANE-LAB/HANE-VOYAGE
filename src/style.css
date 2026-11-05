@@ -17,6 +17,9 @@
 }
 [hidden]{display:none!important}
 html,body{height:100%;margin:0;background:var(--night);color:var(--moon);overflow:hidden}
+/* a phone's browser zooms the page on a double tap wherever touch-action lets it. The picture and the timeline have gestures of their own (none below);
+   buttons were left open, so a slip on one zoomed the page. This turns only the double tap off: two fingers still zoom */
+html,body,button,a,input,label{touch-action:manipulation}
 body{font-family:var(--f-body);-webkit-font-smoothing:antialiased}
 #stage{position:fixed;inset:0}
 #sea{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}

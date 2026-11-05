@@ -64,7 +64,16 @@ function playLabel(){
   playText.textContent = playing ? '暂停' : start ? '从 2021 年开始' : '继续';
   playBtn.dataset.state = playing ? 'pause' : start ? 'start' : 'resume';
 }
-playBtn.addEventListener('click', () => { if (playing) playing = false; else { if (t >= T_END-0.01){ t = 0; lastDay = 0; seeked = true; } playing = true; cueFigures(); } playLabel(); });
+// a double tap is two clicks: the second would pause what the first just started and leave it sitting in 2021, so one that soon after does not count
+const PLAY_GAP = 400;   // ms
+let playTapped = -PLAY_GAP;
+playBtn.addEventListener('click', () => {
+  const now = performance.now();
+  if (now - playTapped < PLAY_GAP) return;
+  playTapped = now;
+  if (playing) playing = false; else { if (t >= T_END-0.01){ t = 0; lastDay = 0; seeked = true; } playing = true; cueFigures(); }
+  playLabel();
+});
 slowBtn.addEventListener('click', () => { slowMo = !slowMo; slowBtn.setAttribute('aria-pressed', String(slowMo)); });
 speedBtn.addEventListener('click', () => { speedMul = SPEEDS[(SPEEDS.indexOf(speedMul)+1) % SPEEDS.length]; setValue(speedBtn, speedMul + '×'); });
 viewBtn.addEventListener('click', () => { cam.view = (cam.view+1) % VIEWS.length; cam.userAz = 0; cam.userEl = 0; cam.zoom = 1; setValue(viewBtn, VIEWS[cam.view].name); });
