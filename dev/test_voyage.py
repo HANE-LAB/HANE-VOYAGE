@@ -267,6 +267,53 @@ class VoyageTests(unittest.TestCase):
                 self.assertFalse(self.crawl(routes)["complete"])
         self.assertFalse((self.data / "guard").exists())
 
+    def test_list_ceiling_walks_the_accompany_order_and_merges(self):
+        # 名单每种排序只给到上限（这里是 3）：默认排序看不到丁，按陪伴天数看不到丙，总数 5 人，还有 1 人谁也看不到。
+        # 乙在默认排序里是 0 天，按陪伴天数给了 40 天，用 40。
+        d = 3546000000000888
+        a, b, c = FLEET
+        routes = {"typ=1": page(5, 1, top3=[person(BB, 3, 5, 40, "假名乙")], rows=[person(d, 3, 2, 1, "假名丁"), a]),
+                  "page=1&": page(5, 1, top3=[a], rows=[b, c])}
+        net = Net(routes)
+        with patch.object(F, "LIST_CAP", 3), patch.object(F, "get_json", net):
+            r = F.crawl_guard(self.data / "guard", now=datetime(2021, 2, 10, 20, 30, tzinfo=CST))
+        self.assertTrue(r["complete"])
+        self.assertEqual([("typ=1" in u) for u, _ in net.calls], [False, True])
+        self.assertEqual({k: r["second"][k] for k in ("added", "zero_fixed", "error")}, {"added": 1, "zero_fixed": 1, "error": ""})
+        got = {m[0]: m for m in r["members"]}
+        self.assertEqual(len(got), 4)
+        self.assertEqual(got[F.uid_digest(BB)[:3].hex()][3], 40)
+        self.assertEqual(got[F.uid_digest(d)[:3].hex()][4], "假名丁")
+        snap = json.loads(r["file"].read_text(encoding="utf-8"))
+        self.assertEqual((snap["total"], len(snap["members"])), (5, 4))  # 总数还是 B 站给的，build 把差的算成无名之舰
+
+    def test_second_order_failing_still_saves_the_default_list(self):
+        for name, second in {"限流": {"code": -352, "message": "风控校验失败"},
+                             "这个排序没了": page(0, 1)}.items():
+            with self.subTest(name), patch.object(F, "LIST_CAP", 3):
+                r = self.crawl({"typ=1": second, "page=1&": page(5, 1, top3=FLEET[:1], rows=FLEET[1:])})
+                self.assertTrue(r["complete"])
+                self.assertEqual((len(r["members"]), r["second"]["added"]), (3, 0))
+                self.assertTrue(r["file"].exists())
+                r["file"].unlink()
+
+    def test_below_the_ceiling_there_is_no_second_walk(self):
+        net = Net(GUARD_PAGES)
+        with patch.object(F, "get_json", net):
+            r = F.crawl_guard(self.data / "guard", now=datetime(2021, 2, 10, 20, 30, tzinfo=CST))
+        self.assertTrue(r["complete"])
+        self.assertIsNone(r["second"])
+        self.assertFalse(any("typ=" in u for u, _ in net.calls))
+
+    def test_short_or_overfull_lists_at_the_ceiling_save_nothing(self):
+        a, b, c = FLEET
+        d, e = person(3546000000000888, 3, 2, 1, "假名丁"), person(3546000000000999, 3, 2, 1, "假名戊")
+        for name, routes in {"翻到头也不到上限": {"page=1&": page(9, 1, top3=[a], rows=[b])},
+                             "两遍合起来比总数多": {"typ=1": page(4, 1, top3=[d], rows=[e]), "page=1&": page(4, 1, top3=[a], rows=[b, c])}}.items():
+            with self.subTest(name), patch.object(F, "LIST_CAP", 3):
+                self.assertFalse(self.crawl(routes)["complete"])
+        self.assertFalse((self.data / "guard").exists())
+
     def test_network_errors_retry_but_blocks_stop_at_once(self):
         with patch("urllib.request.urlopen", side_effect=[urllib.error.URLError("down"), io.BytesIO(b'{"code":0}')]) as get, \
                 patch("time.sleep") as sleep:

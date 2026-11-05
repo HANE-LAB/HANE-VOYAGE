@@ -19,6 +19,8 @@ from . import CST, DAY0, ROOM, ROOT, UID, load_json, save_json, save_text
 VTBS = "https://api.vtbs.moe"
 GUARD_API = "https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew"
 PAGE_SIZE = 30
+LIST_CAP = 9999       # 名单每种排序都只给到第 9999 名，总数 info.num 不受影响（docs/DATA.md「名单的上限」）
+BY_ACCOMPANY = 1      # typ=1：按陪伴天数从长到短排。不带 typ 时按等级和粉丝牌排，两种截掉的人不一样
 PAUSE = (2.0, 4.0)    # 两次请求之间随机等待的秒数，不快于 HANE 的 1.5–3.5 秒
 LOCAL_CONFIG = ROOT / "config.local.toml"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -203,13 +205,14 @@ def member(row, forget: frozenset | set = frozenset()) -> tuple[bytes, tuple] | 
     return digest, (digest[:3].hex(), level, medal, accompany, name)
 
 
-def guard_page(page: int, cookie: str, forget: frozenset | set = frozenset()):
+def guard_page(page: int, cookie: str, forget: frozenset | set = frozenset(), typ: int | None = None):
     """名单的一页 → (总人数, 接口报告的总页数, [(完整摘要, 记录)], 神秘人的排名)。
-    每一页都会重复返回前三名（top3），由调用方去重。"""
+    每一页都会重复返回前三名（top3），由调用方去重。typ 是另一种排序，不给就是默认排序。"""
     headers = {"Referer": f"https://live.bilibili.com/{ROOM}", "Origin": "https://live.bilibili.com"}
     if cookie:
         headers["Cookie"] = cookie
-    body = get_json(f"{GUARD_API}?roomid={ROOM}&ruid={UID}&page={page}&page_size={PAGE_SIZE}", headers)
+    order = "" if typ is None else f"&typ={typ}"
+    body = get_json(f"{GUARD_API}?roomid={ROOM}&ruid={UID}&page={page}&page_size={PAGE_SIZE}{order}", headers)
     if not isinstance(body, dict) or body.get("code") != 0:
         code = body.get("code") if isinstance(body, dict) else None
         raise BiliError(code, str(body.get("message") or "")[:80] if isinstance(body, dict) else "")
@@ -234,19 +237,15 @@ def snapshot_text(time_iso: str, total: int, rows: list, columns: list = COLUMNS
     return f'{{"time":"{time_iso}","total":{total},{mark}"columns":{json.dumps(columns)},"members":[\n{lines}\n]}}\n'
 
 
-def crawl_guard(guard_dir: Path, now: datetime | None = None) -> dict:
-    """翻完在册名单并存一份快照；没翻完时不存，只返回概况。删除名单在数据目录，即 guard_dir 的上一级。"""
-    when = now or datetime.now(CST)
-    cookie = cookie_header()
-    forget = removed(guard_dir.parent)
-    found: dict[bytes, tuple] = {}
+def walk_guard(found: dict, cookie: str, forget: frozenset | set, typ: int | None = None) -> tuple[int, int, int, set]:
+    """把一种排序翻到接口给的最后一页，人记进 found。返回 (总人数, 翻到第几页, 最后一页, 神秘人的排名)。"""
     hidden: set = set()
     page = 0
     while True:
         page += 1
         if page > 1:
             pause()
-        num, reported, rows, mystery = guard_page(page, cookie, forget)
+        num, reported, rows, mystery = guard_page(page, cookie, forget, typ)
         last = reported if isinstance(reported, int) and reported > 0 else math.ceil(num / PAGE_SIZE)
         before = len(found) + len(hidden)
         for digest, record in rows:
@@ -254,13 +253,48 @@ def crawl_guard(guard_dir: Path, now: datetime | None = None) -> dict:
         hidden |= mystery
         # 停在中途的情况：接口不给更深的页，或分页没有前进。
         if page >= last or not (rows or mystery) or len(found) + len(hidden) == before:
-            break
+            return num, page, last, hidden
+
+
+def second_walk(found: dict, cookie: str, forget: frozenset | set) -> dict:
+    """人数过了上限：按陪伴天数再翻一遍，并进 found。默认排序的末尾是粉丝牌最低的舰长，不分上舰早晚；这一种的末尾是
+    刚上舰的人，所以合起来看不到的只有刚上舰、粉丝牌又排在最后的人。这一遍只是多看到一些人：出错就留下已经翻到的，
+    名单照样存，不让每日更新停掉。它的神秘人不计：排名和默认排序的对不上，也认不出是不是同一个人。"""
+    other: dict = {}
+    info = {"pages": 0, "last": 0, "added": 0, "zero_fixed": 0, "error": ""}
+    pause()
+    try:
+        _, info["pages"], info["last"], _ = walk_guard(other, cookie, forget, BY_ACCOMPANY)
+    except (OSError, ValueError, RuntimeError) as e:  # BiliError 是 RuntimeError；限流时不重试
+        info["error"] = str(e)
+    for digest, record in other.items():
+        have = found.get(digest)
+        if have is None:
+            found[digest] = record
+            info["added"] += 1
+        elif have[3] == 0 and record[3] > 0:  # B 站每次给一部分人返回 0 天，另一遍给了正值就用它
+            found[digest] = record
+            info["zero_fixed"] += 1
+    return info
+
+
+def crawl_guard(guard_dir: Path, now: datetime | None = None) -> dict:
+    """翻完在册名单并存一份快照；没翻完时不存，只返回概况。删除名单在数据目录，即 guard_dir 的上一级。"""
+    when = now or datetime.now(CST)
+    cookie = cookie_header()
+    forget = removed(guard_dir.parent)
+    found: dict[bytes, tuple] = {}
+    num, page, last, hidden = walk_guard(found, cookie, forget)
+    # 总人数过了上限时接口给不全，翻到上限就算到头了。少于上限还是当作没翻完，那更像接口出了问题。
+    capped = page >= last and num > LIST_CAP and len(found) + len(hidden) >= LIST_CAP * 0.99
+    second = second_walk(found, cookie, forget) if capped else None
+    seen = len(found) + len(hidden)
     # 翻到最后一页、人数也对得上才算完整：抓取期间有人进出，多收少收都只允许差 1%。总数是 0 时不存，那更像接口出了
     # 问题；2026-10-24 以前只查少收，「成功」但空的名单也会存下来，build 后最后一天变成 0 人、名单清空。
-    complete = page >= last and num > 0 and abs(len(found) + len(hidden) - num) <= num * 0.01
+    complete = page >= last and num > 0 and (abs(seen - num) <= num * 0.01 or (capped and seen <= num * 1.01))
     members = sorted(found.values())
     result = {"total": num, "pages": page, "last": last, "complete": complete, "members": members,
-              "hidden": len(hidden), "file": None}
+              "hidden": len(hidden), "second": second, "file": None}
     if complete:
         day = (when.date() - DAY0).days
         path = guard_dir / f"{when:%Y%m%d-%H%M%S}.json"

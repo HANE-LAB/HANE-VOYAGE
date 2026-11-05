@@ -53,6 +53,12 @@ def main(argv=None) -> int:
                   f"（{r['pages']}/{r['last']} 页）"
                   f" · 总督 {levels[1]} · 提督 {levels[2]} · 舰长 {levels[3]}"
                   + (f" · 神秘人 {r['hidden']} 位不进名单" if r["hidden"] else ""))
+            if second := r["second"]:
+                print(f"  人数过了名单上限 {F.LIST_CAP}：按陪伴天数又翻了 {second['pages']}/{second['last']} 页，"
+                      f"多看到 {second['added']} 人，补上 {second['zero_fixed']} 人的陪伴天数，"
+                      f"还有 {r['total'] - len(members) - r['hidden']} 人只知道人数")
+                if second["error"] or second["pages"] < second["last"]:
+                    print(f"::warning::按陪伴天数的那一遍没翻完，这次只用已经翻到的。{second['error']}")
             if members:
                 print(f"  粉丝牌 {min(m[2] for m in members)}–{max(m[2] for m in members)} 级"
                       f" · 陪伴 {min(m[3] for m in members)}–{max(m[3] for m in members)} 天")

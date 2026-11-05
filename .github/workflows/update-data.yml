@@ -25,7 +25,8 @@ jobs:
     # 开发仓库里也有这份文件，只在公开仓库跑
     if: github.repository == 'HANE-LAB/HANE-VOYAGE'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # 人数过万时名单要按两种排序各翻一遍，每遍约 25 分钟
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
