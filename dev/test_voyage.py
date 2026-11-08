@@ -602,6 +602,87 @@ class VoyageTests(unittest.TestCase):
         self.assertEqual([s[:2] for s in N.load(self.data)["ships"]], [["aaaaaa", 1], ["bbbbbb", 2]])
         self.assertNotIn("甲", out.getvalue())
 
+    def test_numbers_order_a_day_by_boarding_records_and_hold_hidden_ships(self):
+        def fleet(days, *ships):
+            return {"total": [len(ships)] * days, "named": [{"start": s, "level": 3, "medal": 1, "id": i, "acc": a, "name": ""}
+                                                           for i, s, a in ships]}
+        day = lambda h, m=0: ms(2021, 2, 13, h, m)   # 第 10 天（北京时间 2 月 13 日）
+        reg = {"issued_at": "第一次", "through": 9, "boarding_until": "2021-02-12T00:00:00+08:00", "ships": [["oooooo", 1, 0]]}
+        # 第 10 天上舰的四个人：bbbbbb 19 点、aaaaaa 20 点在直播里上舰；cccccc 没有记录；dddddd 的记录在前一天（不算这一天的）。
+        # hhhhhh 19 点半上舰，名单上看不到：按时间留号。oooooo 已经有号，续费的记录不再给号
+        v = fleet(11, ("oooooo", 3, 8), ("aaaaaa", 10, 1), ("bbbbbb", 10, 1), ("cccccc", 10, 1), ("dddddd", 10, 1))
+        recs = {"until": "2021-02-13T18:00:00+08:00", "rows": [
+            ["aaaaaa", day(20), "l1", 300], ["bbbbbb", day(19), "l1", 100], ["hhhhhh", day(19, 30), "l1", 200],
+            ["oooooo", day(19, 45), "l1", 250], ["dddddd", ms(2021, 2, 12, 22), "l0", 5], ["aaaaaa", day(21), "l1", 400]]}
+        reg = N.apply(reg, v, "第二次", recs)
+        self.assertEqual({s["id"]: s["no"] for s in v["named"]},
+                         {"oooooo": 1, "bbbbbb": 2, "aaaaaa": 4, "cccccc": 5, "dddddd": 6})
+        self.assertIn(["hhhhhh", 3, 0], reg["ships"])
+        self.assertFalse(any("approx" in s for s in v["named"]))
+        self.assertEqual((reg["issued_at"], reg["boarding_until"]), ("第一次", "2021-02-13T18:00:00+08:00"))
+        # 第二天 hhhhhh 出现在名单上：拿回留的号；同样的记录再读一遍也不多发号，读到的位置不往回退
+        v = fleet(12, ("hhhhhh", 10, 2), ("bbbbbb", 10, 2))
+        reg = N.apply(reg, v, "第三次", {"until": "2021-02-12T00:00:00+08:00", "rows": recs["rows"]})
+        self.assertEqual({s["id"]: s["no"] for s in v["named"]}, {"hhhhhh": 3, "bbbbbb": 2})
+        self.assertEqual(len(reg["ships"]), 6)
+        self.assertEqual(reg["boarding_until"], "2021-02-13T18:00:00+08:00")
+        # 存下来、读回来不变；读到的位置格式不对就不认
+        N.save(self.data, reg)
+        self.assertEqual(N.load(self.data), reg)
+        (self.data / N.NUMBERS).write_text(json.dumps({**reg, "boarding_until": "昨天"}), encoding="utf-8")
+        with self.assertRaises(ValueError):
+            N.load(self.data)
+
+    def test_boarding_records_come_from_new_finished_lives_and_keep_no_uid(self):
+        start = lambda d, h: ms(2021, 2, d, h)
+        (self.data / N.NUMBERS).write_text(json.dumps({"issued_at": "x", "through": 5, "boarding_until": "2021-02-08T12:00:00+08:00",
+                                                      "ships": []}), encoding="utf-8")
+        channel = {"code": 200, "data": {"channel": {"uId": UID, "totalLiveCount": 3}, "lives": [
+            {"liveId": "old", "startDate": start(7, 20), "isFinish": True},
+            {"liveId": "new", "startDate": start(9, 20), "isFinish": True},
+            {"liveId": "now", "startDate": start(10, 20), "isFinish": False}]}}
+
+        def rows(total, *rs):
+            return {"code": 200, "data": {"total": total, "data": {"danmakus": list(rs)}}}
+        routes = {"liveId=new&includeExtra=false&pageNum=0&": rows(2500, {"type": 1, "uId": A, "sendDate": start(9, 21)},
+                                                                     {"type": 2, "uId": A, "sendDate": start(9, 21), "message": "舰长"},
+                                                                     {"type": 2, "uId": 0, "sendDate": start(9, 22)}),
+                  "liveId=new&includeExtra=false&pageNum=1&": rows(2500, {"type": 2, "uId": BB, "sendDate": start(9, 23)}),
+                  "/v2/channel": channel}
+        net = Net(routes)
+        with patch.object(F, "get_json", net):
+            r = F.update_boarding(self.data)
+        self.assertEqual((r["lives"], r["pages"], r["rows"], r["skipped"]), (1, 2, 2, 1))
+        saved = N.records(self.data)
+        self.assertEqual(saved["until"], "2021-02-09T20:00:00+08:00")
+        self.assertEqual(saved["rows"], [[F.uid_digest(A)[:3].hex(), start(9, 21), "new", 1],
+                                         [F.uid_digest(BB)[:3].hex(), start(9, 23), "new", 2000]])
+        self.assertFalse(any("liveId=old" in u or "liveId=now" in u for u, _ in net.calls))
+        for secret in (str(A), str(BB), "舰长"):
+            self.assertNotIn(secret, self.saved_text())
+        # 响应不对就停，已存的文件不动；登记簿里没有起点时一个请求也不发
+        before = (self.data / N.BOARDING).read_bytes()
+        for name, body in {"不是她": {**channel, "data": {**channel["data"], "channel": {"uId": 1}}},
+                           "逐条记录变了": {"code": 200, "data": {"total": "很多"}}}.items():
+            bad = {**routes, "/v2/channel": body} if name == "不是她" else {**routes, "liveId=new&includeExtra=false&pageNum=0&": body}
+            with self.subTest(name), patch.object(F, "get_json", Net(bad)), self.assertRaises(ValueError):
+                F.update_boarding(self.data)
+        self.assertEqual((self.data / N.BOARDING).read_bytes(), before)
+        (self.data / N.NUMBERS).unlink()
+        with patch.object(F, "get_json", Net({})):
+            self.assertIsNone(F.update_boarding(self.data)["until"])
+
+    def test_update_goes_on_when_only_the_boarding_records_fail(self):
+        (self.data / N.NUMBERS).write_text(json.dumps({"issued_at": "x", "through": 1, "boarding_until": "2021-02-01T00:00:00+08:00",
+                                                      "ships": []}), encoding="utf-8")
+        out = io.StringIO()
+        routes = {**VTBS_FULL, **GUARD_PAGES, "/v2/channel": {"code": 500}, "ukamnads": LIVES["ukamnads"]}
+        with patch.object(F, "get_json", Net(routes)), redirect_stdout(out), redirect_stderr(out):
+            self.assertEqual(main(["update", "--data", str(self.data)]), 0, out.getvalue())
+        self.assertIn("::warning::上舰记录这次没取到", out.getvalue())
+        # 名单照样合成、照样编号（假名乙的陪伴天数是 0，未知，等知道了再编）
+        self.assertEqual(len(N.load(self.data)["ships"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

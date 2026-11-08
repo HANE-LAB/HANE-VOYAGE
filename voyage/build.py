@@ -249,8 +249,8 @@ def build(data: Path) -> dict:
                  "from": {"total": iso(total_from), "followers": iso(followers_from),
                           "live": iso(min(live)) if live else None}},
     }
-    # 编号：已有号的人沿用，新人接在最大号后面（voyage/numbers.py）；数据合格才一起写进去
-    reg = N.apply(N.load(data), out, datetime.now(CST).isoformat(timespec="seconds"))
+    # 编号：已有号的人沿用，新人接在最大号后面，同一天里按上舰记录排（voyage/numbers.py）；数据合格才一起写进去
+    reg = N.apply(N.load(data), out, datetime.now(CST).isoformat(timespec="seconds"), N.records(data))
     check(out)
     save_json(data / "voyage.json", out)
     N.save(data, reg)

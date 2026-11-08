@@ -1,4 +1,4 @@
-"""联网采集：vtbs.moe 的大航海与粉丝记录、Danmakus 的开播记录、B 站在册名单。update、vtbs、live、guard 命令联网；forget 只改本机的删除名单和快照。"""
+"""联网采集：vtbs.moe 的大航海与粉丝记录、Danmakus 的开播记录和上舰记录、B 站在册名单。update、vtbs、live、guard、boarding 命令联网；forget 只改本机的删除名单和快照。"""
 from __future__ import annotations
 
 import hashlib
@@ -130,6 +130,68 @@ def update_live(data: Path) -> tuple[int, int]:
     days = sorted(set(old) | {datetime.fromtimestamp(t / 1000, CST).date().isoformat() for t in starts})
     save_json(path, days)
     return len(days) - len(old), max(starts)
+
+
+# ── Danmakus 的上舰记录 ────────────────────────────────────────
+LIVE_ROWS = "https://api.ukamnads.icu/api/v2/live?liveId={}&includeExtra=false&pageNum={}&pageSize={}"
+ROWS_PER_PAGE = 2000
+BOARDING = "boarding.json"   # 在 data/raw/ 里，git 忽略
+
+
+def update_boarding(data: Path) -> dict:
+    """登记簿（data/numbers.json）的 boarding_until 以后开播、已经播完的场次里，直播时的上舰记录（Danmakus 的 type 2）
+    → data/raw/boarding.json：{"until": 读到哪一场的开播时间, "rows": [[id, 毫秒时间, 场次, 场次里的序号], …]}。
+    build 用它给新人排同一天里的先后，给名单上看不到的人留号（voyage/numbers.py）。
+    UID 一读到就在内存里换成 id，UID 和昵称都不存、不打印。还在播的场次这次不读，下次播完再读。
+    登记簿里还没有 boarding_until 时什么都不取。响应不对就抛出去，不写文件。"""
+    since = load_json(data / "numbers.json", {}).get("boarding_until")
+    if not since:
+        return {"lives": 0, "pages": 0, "rows": 0, "skipped": 0, "until": None}
+    until = since_ms = int(datetime.fromisoformat(since).timestamp() * 1000)
+    body = get_json(LIVES)
+    info = body.get("data") if isinstance(body, dict) and body.get("code") == 200 else None
+    channel, lives = (info.get("channel"), info.get("lives")) if isinstance(info, dict) else (None, None)
+    if not isinstance(channel, dict) or not isinstance(lives, list):
+        raise ValueError("Danmakus 的响应结构变了")
+    if str(channel.get("uId")) != str(UID):
+        raise ValueError("Danmakus 返回的不是她的记录")
+    todo = sorted((s for s in lives if isinstance(s, dict) and isinstance(s.get("liveId"), str)
+                   and isinstance(s.get("startDate"), (int, float)) and s["startDate"] > since_ms and s.get("isFinish") is True),
+                  key=lambda s: s["startDate"])
+    ids, rows, pages, skipped = {}, [], 0, 0
+    for s in todo:
+        n = page = 0
+        while page <= n:
+            pause()
+            body = get_json(LIVE_ROWS.format(s["liveId"], page, ROWS_PER_PAGE))
+            d = body.get("data") if isinstance(body, dict) and body.get("code") == 200 else None
+            total = d.get("total") if isinstance(d, dict) else None
+            got = d.get("data", {}).get("danmakus") if isinstance(d, dict) and isinstance(d.get("data"), dict) else None
+            if type(total) is not int or total < 0 or not isinstance(got, list):
+                raise ValueError("Danmakus 的逐条记录格式变了")
+            n = max(0, -(-total // ROWS_PER_PAGE) - 1)   # 最后一页的页号
+            for k, r in enumerate(got):
+                if not isinstance(r, dict) or r.get("type") != 2:
+                    continue
+                t, uid = r.get("sendDate"), r.get("uId")
+                if not isinstance(t, (int, float)) or not 946684800000 <= t < 4102444800000:
+                    raise ValueError("Danmakus 的上舰时间格式变了")
+                if uid not in ids:
+                    try:
+                        ids[uid] = uid_digest(uid)[:3].hex()
+                    except ValueError:
+                        ids[uid] = None   # 没有 UID 的记录认不出是谁，跳过
+                if ids[uid] is None:
+                    skipped += 1
+                    continue
+                rows.append([ids[uid], int(t), s["liveId"], page * ROWS_PER_PAGE + k])
+            pages += 1
+            page += 1
+        until = max(until, int(s["startDate"]))
+    ids.clear()
+    out = {"until": datetime.fromtimestamp(until / 1000, CST).isoformat(timespec="seconds"), "rows": rows}
+    save_json(data / "raw" / BOARDING, out)
+    return {"lives": len(todo), "pages": pages, "rows": len(rows), "skipped": skipped, "until": out["until"]}
 
 
 # ── B 站在册名单 ──────────────────────────────────────────────

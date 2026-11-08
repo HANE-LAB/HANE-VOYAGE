@@ -1,4 +1,4 @@
-"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,live,guard,build,number,forget,prune}"""
+"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,live,guard,boarding,build,number,forget,prune}"""
 from __future__ import annotations
 
 import argparse
@@ -19,14 +19,15 @@ def main(argv=None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(prog="python -m voyage", description=__doc__)
-    parser.add_argument("command", choices=("update", "vtbs", "live", "guard", "build", "number", "forget", "prune"),
-                        help="update 依次运行 vtbs、live、guard、build；build 只用已下载的数据，不联网；"
+    parser.add_argument("command", choices=("update", "vtbs", "live", "guard", "boarding", "build", "number", "forget", "prune"),
+                        help="update 依次运行 vtbs、live、guard、boarding、build；boarding 取新播完的场次里直播时的上舰记录，给编号排先后；"
+                             "build 只用已下载的数据，不联网；"
                              "number 不联网，只按 data/numbers.json 给现有的 voyage.json 补上编号；"
                              "forget 把要求删掉名字的人记进删除名单；prune 给公开仓库的每日更新用：快照只留最近几天，昵称换成哈希")
     parser.add_argument("uids", nargs="*", help="forget 用：要删掉名字的人的 UID；不写就逐行输入")
     parser.add_argument("--data", type=Path, default=DATA, help="数据目录，默认 data/")
     args = parser.parse_args(argv)
-    steps = ("vtbs", "live", "guard", "build") if args.command == "update" else (args.command,)
+    steps = ("vtbs", "live", "guard", "boarding", "build") if args.command == "update" else (args.command,)
     try:
         if "forget" in steps:
             uids = args.uids or [line.strip() for line in sys.stdin if line.strip()]
@@ -68,6 +69,19 @@ def main(argv=None) -> int:
             if not r["complete"]:
                 raise RuntimeError("名单没有翻完或人数对不上，这次不存快照")
             print(f"  快照 {r['file']}")
+        if "boarding" in steps:
+            try:
+                r = F.update_boarding(args.data)
+                if r["until"] is None:
+                    print("上舰记录：登记簿里还没有起点，这次不取")
+                else:
+                    print(f"上舰记录：新播完 {r['lives']} 场，{r['pages']} 页，上舰 {r['rows']} 笔"
+                          + (f"（{r['skipped']} 笔没有 UID，跳过）" if r["skipped"] else "") + f"，读到 {r['until'][:16]} 开播的场次")
+            except (OSError, ValueError, RuntimeError) as e:
+                if args.command != "update":
+                    raise
+                # 每日更新里，这一项取不到不耽误名单和编号：新人这次按 id 排，下次接着读这几场
+                print(f"::warning::上舰记录这次没取到：{e}")
         if "prune" in steps:
             gone, kept = B.prune(args.data)
             print(f"快照：删掉 {gone} 份，留下 {kept} 份，昵称都换成了哈希")
@@ -76,7 +90,7 @@ def main(argv=None) -> int:
             v = json.loads(path.read_text(encoding="utf-8"))
             reg = N.load(args.data)
             before = len(reg["ships"])
-            reg = N.apply(reg, v, datetime.now(CST).isoformat(timespec="seconds"))
+            reg = N.apply(reg, v, datetime.now(CST).isoformat(timespec="seconds"), N.records(args.data))
             B.check(v)
             B.save_json(path, v)
             N.save(args.data, reg)
