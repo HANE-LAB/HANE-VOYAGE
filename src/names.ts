@@ -262,11 +262,11 @@ async function search(){
       const byId = IDS.flatMap((x, k) => x === id ? [k] : []);
       ks = [...byId, ...ks.filter(k => !byId.includes(k))];
       msg = byId.length ? `这是你的船${byId.length > 1 ? `（有 ${byId.length} 条船对得上，都列出来了）` : ''}。UID 只在你的设备上核对，不会上传`
-        : nk >= 0 ? noMsg(nk) : '今天的名单里没有这个 UID（选了神秘人的也查不到），也没有这个编号';
+        : nk >= 0 ? noMsg(nk) : '今天的名单里没有这个 UID（选了神秘人的也查不到），今天的船队里也没有这一号';
     }
   }
   else if (nk >= 0) msg = noMsg(nk);
-  else if (/^(?:#|no\.?|第)\s*\d/i.test(q)) msg = '没有这个编号：编号从 2026 年 10 月 22 日的名单起，那以前就离开的人没有';
+  else if (/^(?:#|no\.?|第)\s*\d/i.test(q)) msg = '今天的船队里没有这一号';
   if (mine !== query) return;
   found = ks;
   list.innerHTML = ks.slice(0, LIMIT).map(row).join('');
