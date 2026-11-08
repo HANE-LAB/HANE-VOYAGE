@@ -1,31 +1,45 @@
 # HANE Voyage · 火羽舰队
 
-火羽ひのめ的非官方大航海可视化。她的旗舰在最前面，船头站着她和 kobuta，舰长、提督、总督组成羽毛形的舰队跟在后面，从 2021 年起航到今天；每个月船头前方升起一座海中鸟居，样子随那个月同行的人数和季节变化；天上的星星是粉丝数；人数跨过 100 / 1000 人或大涨的日子放烟花，有的炸成火羽或 kobuta 的头像；船头的篝火随她最近开播的频率明暗。
+火羽ひのめ的大航海可视化（非官方）。名单上的每一个人是一艘船，跟着她的船从 2021 年航行到今天。
 
-[在线浏览](https://hane-lab.github.io/HANE-VOYAGE/) · [公开源码](https://github.com/HANE-LAB/HANE-VOYAGE) · [离线版下载](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-offline.zip) · [Windows 桌面版](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-setup.exe)
+[在线浏览](https://hane-lab.github.io/HANE-VOYAGE/) · [离线版](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-offline.zip) · [Windows 桌面版](https://github.com/HANE-LAB/HANE-VOYAGE/releases/download/offline/HANE-Voyage-setup.exe) · [源码](https://github.com/HANE-LAB/HANE-VOYAGE)
 
-数据每天日本时间 03:00 由 GitHub Actions 自动更新：vtbs.moe 的每日人数和粉丝数、Danmakus 的开播记录，加上 B 站直播间的大航海名单，不需要登录。来源和算法见[数据](docs/DATA.md)。
+## 功能
 
-## 使用方式
+- 按天回放 2021-02-03 至今的大航海人数、粉丝数和开播日
+- 每位舰长、提督、总督一艘船，按上舰先后编号
+- 「寻舟」：按昵称、UID 或编号找到自己的船
+- 每月一座海中鸟居，陪伴满一年的名字刻在鸟居上
+- 二次元、写实两种画风，电影模式
+- 数据每天日本时间 03:00 自动更新
 
-- **直接浏览**：打开在线网站。右上角「寻舟」输入昵称或 UID，可以找到自己的船。
-- **离线浏览**：下载 `HANE-Voyage-offline.zip`，解压后用 Chrome 或 Edge 打开 `index.html`；只有字体需要联网。
-- **桌面版**：`HANE-Voyage-setup.exe` 是 Windows 安装版，`HANE-Voyage.exe` 免安装，都在 Releases 的「offline」里。
-- **本地开发**：运行 `npm install` 和 `npm run dev`，打开 `http://127.0.0.1:8770/`。`npm run build` 生成单文件 `dist/index.html`。
-- **操作**：点一条船看它是谁，镜头会移过去（拖动转视角，点「回到船队」或按 Esc 回去）；右上角「寻舟」按名字或 UID 找船，它旁边的喇叭打开配乐（默认关，页面会记住）。「从 2021 年开始」播放整段航程，「电影模式」去掉界面、从头放映。设置按钮上写着现在的值：「速度」、「视角」（回望／俯瞰／远望）、「画风」（二次元／写实）、「动态」（完整／减少，默认完整）；「逢潮缓行」是开关，亮着就是开：人数大涨或大跌的日子前后放慢播放。底栏右上角的「收起」把底栏收到只剩播放键，挡住船时用，「展开」放回来，页面会记住。点过按钮或按 Tab 到时间轴后，方向键逐日移动，按住 Shift 一次 30 天，空格播放和暂停。
+画面里每样东西代表什么、按钮怎么用，见 [画面与操作](docs/GUIDE.md)。
 
-## 文档导航
+## 运行
 
-| 想做什么 | 文档 |
+浏览：打开在线网站；或者解压离线版，用 Chrome 或 Edge 打开 `index.html`。
+
+开发（Node.js 24）：
+
+```powershell
+npm install
+npm run dev      # http://127.0.0.1:8770/
+npm run build    # 单文件 dist/index.html
+```
+
+## 文档
+
+| 文档 | 内容 |
 |---|---|
-| 准备环境、找代码、调参数、调试 | [开发指南](docs/DEVELOPMENT.md) |
-| 了解数据来源、格式和接入真实数据 | [数据](docs/DATA.md) |
-| 发布网站、离线版和桌面版 | [部署](docs/DEPLOY.md) |
+| [画面与操作](docs/GUIDE.md) | 画面元素和数据的对应，按钮和快捷键 |
+| [数据](docs/DATA.md) | 来源、格式、采集、编号、名字与隐私 |
+| [开发指南](docs/DEVELOPMENT.md) | 环境、代码结构、参数、调试和检查 |
+| [部署](docs/DEPLOY.md) | 网站、离线版和桌面版的发布 |
 
-完整目录及文档维护分工见 [docs/README.md](docs/README.md)。
+## 数据与隐私
 
-## 数据说明
+- 来源：vtbs.moe（每天的人数和粉丝数）、B 站直播间的大航海名单、Danmakus（开播日和直播时的上舰记录），都不需要登录。
+- 只存 UID 的哈希，不存头像和 UID；输入的 UID 只在浏览器里比对。
+- 名字只在点船、悬停或寻舟时显示，陪伴一年以上的除外。要删除名字，联系维护者，见 [名字与隐私](docs/DATA.md#名字与隐私)。
 
-左上角的读数说的是播放到的那一天：「大航海」是那天船上的总人数，分成「陪伴至今」（那天在船、一直留到今天的人，再按等级分成舰长和提督·总督）和「无名之舰」（那天在船、只知道人数不知道是谁的人，大多后来离开了）。陪伴至今里还数出陪伴满一年、半年、一个月的老船长：他们的桅顶立着一道光柱，陪伴越久越高越亮，一年以上每年多一道升起的光环。陪伴天数用 B 站的数字，离开又回来的人算上以前的任期。各项的算法见[数据](docs/DATA.md#页面上的数字)。
-
-陪伴一年以上的老舰长，名字一直挂在他们船上的光柱顶上；每满一年，名字还刻在那个月的鸟居柱上。其他人的名字平时不显示：鼠标停在一条船上、点一条船，或者用右上角的「寻舟」按名字或 UID 找船时，才显示那条船的昵称、等级和陪伴天数。头像和 UID 不显示；名单只保存 UID 的哈希，输入的 UID 只在浏览器里算哈希比对。想让名字从页面上删掉，联系维护者。详见[数据](docs/DATA.md#名字与隐私)。
+配乐：Kevin MacLeod《Senbazuru》（incompetech.com），CC BY 4.0。

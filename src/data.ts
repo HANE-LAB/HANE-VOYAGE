@@ -16,7 +16,7 @@ import voyage from '../data/voyage.json';
    }   day 0 = 2021-02-03, the last entry is the last day; on no day are more ships named than the total
    ===================================================================== */
 export interface Named { start: number; level: number; medal: number; acc: number | null; id: string; name?: string; no?: number; approx?: number }
-export interface VoyageData {
+interface VoyageData {
   total: Int32Array; followers: Int32Array; live: Uint8Array; named: Named[];
   anchors: { total: [number, number][]; followers: [number, number][] };
 }

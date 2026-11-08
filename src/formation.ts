@@ -1,4 +1,4 @@
-import { DATA, LEVEL, NDAYS, NN, NPD, START, dayClamp } from './data';
+import { DATA, LEVEL, NDAYS, NN, NPD, dayClamp } from './data';
 import { ANON_SCALE, FS, SCALE_BY_LEVEL } from './uniforms';
 import type { GroupKey } from './geometry';
 import { ANON_N, DYN, GROUP, INFO, INST, JX, JZ, NI, OFF, PH, groupMeshes, iDyn, iOff, lDyn, lOff } from './fleet';

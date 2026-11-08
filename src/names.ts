@@ -16,7 +16,7 @@ import { markFrag, markVert } from './shaders';
    typed in is hashed on the device (src/uid.ts) and compared with the list's ids. Without names in data/voyage.json
    (no crawl has stored them yet) no names are shown at all; the dev server's ?sample-names makes some up, marked 示意.
    ===================================================================== */
-export const SAMPLE = import.meta.env.DEV && new URLSearchParams(location.search).has('sample-names');
+const SAMPLE = import.meta.env.DEV && new URLSearchParams(location.search).has('sample-names');
 function sampleName(k: number){
   const P = [['羽毛团', '火羽家的', '夜海', '鸟居下的', '千本', '今日も', 'ひのめ', '灯火', '星屑', '小', '', '', ''],
     ['小鸟', '猫', '水手', '旅人', '提灯', '羽', '月见', 'ぶた', 'Kobuta', 'hinome', 'Feather', '豚豚', '船长', '航海士'],

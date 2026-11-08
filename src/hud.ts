@@ -5,7 +5,7 @@ import type { FleetLayout } from './formation';
 /* =====================================================================
    HUD + TIMELINE
    ===================================================================== */
-export const nf = (n: number) => Math.round(n).toLocaleString('en-US');
+const nf = (n: number) => Math.round(n).toLocaleString('en-US');
 const css = getComputedStyle(document.documentElement);
 const tok = (n: string) => css.getPropertyValue(n).trim();
 export const tl = $<HTMLCanvasElement>('timeline'), tctx = tl.getContext('2d')!;

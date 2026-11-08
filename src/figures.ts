@@ -21,8 +21,8 @@ import urlKobuta from './figures/kobuta.glb?url';
 // Her three looks, switched as HANE switches its portraits: the new outfits were shown in streams from 22:00 JST on
 // 14 February 2022 and 2023. t counts days from 2021-02-03, its fraction the hour of that day; the look shown is the
 // last one whose start is not after t.
-export const ERAS = [-Infinity, di(2022, 2, 14) + 22/24, di(2023, 2, 14) + 22/24];
-export const eraAt = (t: number) => ERAS.reduce((k, from, i) => t >= from ? i : k, 0);
+const ERAS = [-Infinity, di(2022, 2, 14) + 22/24, di(2023, 2, 14) + 22/24];
+const eraAt = (t: number) => ERAS.reduce((k, from, i) => t >= from ? i : k, 0);
 const URLS = [url2021, url2022, url2023, urlKobuta];
 
 // 二次元 key in their own frame, turned with them each frame: from the front, a little to her left (the camera's side

@@ -13,7 +13,7 @@ export const cam = { view:0, userAz:0, userEl:0, zoom:1 };
 export const camC = new V3(20, 6, 30), camT = new V3(0, 0, -20);
 let camFov = 32;
 // canvas height plus the view offset under the dock; resize() sets it
-export let fullH = 1;
+let fullH = 1;
 export const setFullH = (h: number) => { fullH = h; };
 // the lowest canvas row the scene's key action may use, just above the dock, and the highest, below the readout on a
 // tall screen (0 otherwise); resize() sets them

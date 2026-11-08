@@ -1,6 +1,6 @@
 # 开发指南
 
-[文档目录](README.md)
+[返回首页](../README.md)
 
 ## 环境
 
@@ -14,18 +14,23 @@ npm run build      # 类型检查后构建 dist/index.html
 npm run preview    # 在 http://127.0.0.1:8771/ 预览构建结果
 ```
 
-`dist/index.html` 是一个独立文件：脚本、样式、着色器和 three.js 都在里面，双击就能打开。只有字体从 Google Fonts 加载，没有网络时用系统字体。
-
-配乐 `public/senbazuru.m4a` 不内嵌：内嵌后每个观众都要多下载约 1.5 MB，不开配乐的人也一样。Vite 把它原样复制到 `dist/`，页面在观众点右上角的喇叭时才下载，离线版和桌面版也带着它。它是 Kevin MacLeod 的《Senbazuru》（incompetech.com，CC BY 4.0），也是第二期视频的主旋律。文件截掉了开头 0.5 秒和结尾约 2 秒的静音，末尾加 0.8 秒淡出，所以循环时约半秒后重新开始；响度降到 −22 LUFS，编码成 AAC 96 kbps，共 91.5 秒、1.1 MB。iPhone 的网页不能调音量，所以音量直接做在文件里。署名写在「如何读图」的最后一段。
-
-桌面版用 [Tauri 2](https://v2.tauri.app/) 把同一个 `dist/index.html` 装进 WebView2 窗口。构建桌面版需要 Rust（用 rustup 安装）和 Visual Studio 的 C++ 生成工具；Windows 11 已自带 WebView2。
+- `dist/index.html` 是独立文件：脚本、样式、着色器和 three.js 都在里面，双击就能打开。字体从 Google Fonts 加载，没有网络时用系统字体。
+- 配乐 `public/senbazuru.m4a` 不内嵌，原样复制到 `dist/`，观众点喇叭时才下载：
+  - Kevin MacLeod《Senbazuru》（incompetech.com，CC BY 4.0），署名在「如何读图」最后一段。
+  - 截掉首尾静音，末尾 0.8 秒淡出；−22 LUFS，AAC 96 kbps，91.5 秒，1.1 MB。iPhone 的网页不能调音量，所以音量做在文件里。
+- 桌面版用 [Tauri 2](https://v2.tauri.app/) 把同一个 `dist/index.html` 装进 WebView2 窗口，需要 Rust（rustup）和 Visual Studio 的 C++ 生成工具。
 
 ```powershell
 npm run tauri dev      # 开发服务器加桌面窗口
 npm run tauri build    # 免安装 exe 在 src-tauri/target/release/，安装包在 src-tauri/target/release/bundle/nsis/
 ```
 
-Python 工具由 [uv](https://docs.astral.sh/uv/) 管理：`uv sync` 按 `pyproject.toml` 和 `uv.lock` 准备 `.venv/`，`uv run` 在其中运行命令。增加依赖用 `uv add`，不要另建 requirements.txt。生成烟花头像和压缩人物模型的脚本要用 OpenCV，它在单独的依赖组 `shapes` 里，平时的 `uv run` 不安装，用法见「烟花头像」和「人物模型」。Windows 上运行 Python 脚本时加 `-X utf8`。大航海数据的采集程序在 `voyage/`，用法见[数据](DATA.md#采集)。
+Python 工具用 [uv](https://docs.astral.sh/uv/)：
+
+- `uv sync` 按 `pyproject.toml` 和 `uv.lock` 准备 `.venv/`，`uv run` 在其中运行；加依赖用 `uv add`。
+- OpenCV 在单独的依赖组 `shapes` 里，只有烟花头像和人物模型的脚本要用（见下文）。
+- Windows 上运行时加 `-X utf8`。
+- 数据采集程序在 `voyage/`，用法见[数据](DATA.md#采集)。
 
 ## 代码结构
 
@@ -130,19 +135,16 @@ Python 工具由 [uv](https://docs.astral.sh/uv/) 管理：`uv sync` 按 `pyproj
 
 ## 烟花头像
 
-烟花的四个头像（火羽 1、2、3 号和 kobuta）是 `src/fwShapes.ts` 里的星位，由开发仓库里的脚本从四张头像图（`1.png`、`2.png`、`3.png`、`kobuta.png`）生成。头像图不进公开仓库，只有生成的星位进来，不要手改。脚本只取每张图头部框里的几类线：剪影的轮廓、脸的轮廓、五官和发饰，沿线等距取星，每个头像正好 1040 颗。换图或改参数后，在页面里用 `fleetFirework("1")` 这类命令放出来，在三个视角和手机上看。
+- 四个头像（火羽 1、2、3 号和 Kobuta）是 `src/fwShapes.ts` 里的星位，每个 1040 颗，不要手改。
+- 星位由脚本从头像图生成：取剪影、脸的轮廓、五官和发饰的线，沿线等距取星。头像图和脚本不在公开仓库。
+- 改过以后用 `fleetFirework("1")` 这类命令放出来，在三个视角和手机上看。
 
 ## 人物模型
 
-船头的火羽三期和 Kobuta 是外部制作的 3D 模型，原始文件不进公开仓库。页面用的是开发仓库里的脚本压出来的副本 `src/figures/*.glb`，构建时以 base64 内嵌进 `dist/index.html`，所以人物模型随页面公开。脚本对每个模型做这几件事：
-
-- 只留底色贴图和它用的那套 UV。法线贴图（强度 0.05–0.35）、ORM（AO 全白，粗糙度近似常数）和切线去掉，页面的着色器不用它们。
-- 底色贴图按 UV 覆盖的区域向外扩 2 像素，其余像素从岛的边缘向外填满（push-pull）。烘焙图集的底是黑的，不填的话 mipmap 会把黑底混进小岛，远看出现黑边。然后缩到 1024²（Kobuta 512²），存成 WebP。
-- 网格和动画交给 gltfpack（npm 的开发依赖，WASM 版不能压贴图）：火羽减到四分之一的三角面（3 万面变成约 1.2 万面，顶点从约 2.5 万减到约 1.2 万），Kobuta 减到一半；然后顶点量化，meshopt 压缩，动画按 30 Hz 重采样，去掉不动的轨道。页面用 three.js 自带的 `MeshoptDecoder` 解码。人物在船头只有几十像素高，核显的瓶颈又在顶点，所以减面；在极近处比较，只有发梢和裙边的轮廓略简化。
-
-2026-10-24 的结果：三期火羽各 323–402 KB，Kobuta 82 KB，合计 1.17 MB；页面从 1.24 MB 变成 2.93 MB。
-
-页面先解码今天那一期和 Kobuta，另外两期在空闲时解码。解码时间见下面的「人物检查」。
+- 船头的火羽三期和 Kobuta 是外部制作的 3D 模型，原始文件不在公开仓库；页面用压缩后的 `src/figures/*.glb`，构建时以 base64 内嵌。
+- 压缩：只留底色贴图（UV 岛向外填色，缩到 1024²，Kobuta 512²，存 WebP）；gltfpack 减面（火羽到四分之一，Kobuta 到一半）、量化、meshopt 压缩，动画按 30 Hz 重采样。页面用 three.js 的 `MeshoptDecoder` 解码。
+- 结果（2026-10-24）：三期火羽各 323–402 KB，Kobuta 82 KB。
+- 页面先解码今天那一期和 Kobuta，另外两期空闲时解码；解码时间见下面的「人物检查」。
 
 ## 调试
 

@@ -150,7 +150,7 @@ def prune(data: Path, keep: int = ACCOMPANY_LOOKBACK) -> tuple[int, int]:
 
 def accompany(snapshots: list[dict]) -> tuple[list[int | None], dict]:
     """只回填最新名单的零值；按 id 分组保留碰撞，原快照不改。audit 的 index 是最新名单的行号（从 0 起）。
-    认人只看 id，不比昵称：改了名还是同一个人（docs/DATA.md「2026-11-05 的核对」）。"""
+    认人只看 id，不比昵称：改了名还是同一个人。"""
     latest = snapshots[-1]
     last = day_of(datetime.fromisoformat(latest["time"]).timestamp() * 1000)
     history, ambiguous = [], set()

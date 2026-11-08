@@ -4,7 +4,7 @@ type Vec = number[];
 export type GroupKey = 'flag' | 'sou' | 'tei' | 'kan' | 'anon';
 
 // smooth normals for ink outlines and cel shading (faces that share a corner push out together)
-export function addOutlineNormals(g: THREE.BufferGeometry){
+function addOutlineNormals(g: THREE.BufferGeometry){
   const pos = g.getAttribute('position'), nor = g.getAttribute('normal'), n = pos.count;
   const map = new Map<string, number>(), acc: number[] = [], idx = new Int32Array(n);
   for (let i = 0; i < n; i++){

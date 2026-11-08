@@ -25,7 +25,7 @@ export const INFO = new Float32Array(NI*4);  // start day, random, lantern stren
 export const DYN = new Float32Array(NI*2);   // lantern multiplier, fade
 const LANP = new Float32Array(NI*3);         // lantern position in model space
 export const JX = new Float32Array(NI), JZ = new Float32Array(NI), PH = new Float32Array(NI);
-export const LOD = new Float32Array(NI);     // 1 while the ship is drawn by its group's detailed model (cullShips)
+const LOD = new Float32Array(NI);     // 1 while the ship is drawn by its group's detailed model (cullShips)
 {
   // the spare lights draw their random numbers last, so every other ship keeps the ones it had before they were added
   const rh = mulberry32(5), N0 = NI - (ANON_N - AMAX), jit = (i: number) => { JX[i] = rh()-0.5; JZ[i] = rh()-0.5; PH[i] = rh()*6.283; };
