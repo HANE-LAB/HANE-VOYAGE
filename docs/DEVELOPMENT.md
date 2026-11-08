@@ -164,7 +164,7 @@ fleetPick(0)               // 选中名单里按上船先后的第 k 条船，�
 
 `data/voyage.json` 里还没有名字时，在开发服务器的地址后加 `?sample-names`（例如 `http://127.0.0.1:8770/?sample-names`），页面会编一些示意名字，名牌上标「示意」，用来看名牌、寻舟和鸟居上的名字。构建好的页面没有这个开关。
 
-截图测试用的开关需在页面脚本运行前设置：`window.__fixedQuality = true` 关闭自动降画质，`window.__dtMax` 限制每帧最大时间步长，`window.__samples` 指定多重采样数（0 关闭）。页面把船的实例数据和 `updateFleet` 放在 `window.__fleet` 上，给下面的船位检查用。
+截图测试用的开关需在页面脚本运行前设置：`window.__fixedQuality = true` 关闭自动降画质，`window.__samples` 指定多重采样数（0 关闭）。页面把船的实例数据和 `updateFleet` 放在 `window.__fleet` 上，给下面的船位检查用。
 
 ## 检查
 

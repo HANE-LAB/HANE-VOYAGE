@@ -1,7 +1,6 @@
-// Hooks on window: the first three are set by screenshot tests before the page script runs; the rest are for reviewing moments from the console.
+// Hooks on window: the first two are set by screenshot tests before the page script runs; the rest are for reviewing moments from the console.
 interface Window {
   __fixedQuality?: boolean;
-  __dtMax?: number;
   __samples?: number;
   // the fleet's instance buffers and its update, for the motion check
   __fleet: { OFF: Float32Array; DYN: Float32Array; INFO: Float32Array; updateFleet(t: number, dt: number, jump: boolean): unknown };

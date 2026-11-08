@@ -10,11 +10,12 @@ import voyage from '../data/voyage.json';
                                      // level 1总督 2提督 3舰长, medal 粉丝牌等级, id UID 的哈希（按 UID 找船时比对）
                                      // acc 最后一天的陪伴天数（B 站正值或历史回填），null 是未知
                                      // name 昵称，只在点选、悬停、寻舟时显示（src/names.ts）；没有或为空就不显示
+                                     // no 编号：按上舰先后，只增不改（data/numbers.json）；approx 是 1 时上舰日是推断的，写「约」
      anchors:{total:[[day,v]], followers:[[day,v]]} // 已核实的数字，画成白点
      meta:   {live_by_posts:[[a,b]], ...} // 按直播预告推断开播的区间（含首尾），其余是合成的说明（还没用）
    }   day 0 = 2021-02-03, the last entry is the last day; on no day are more ships named than the total
    ===================================================================== */
-export interface Named { start: number; level: number; medal: number; acc: number | null; id: string; name?: string }
+export interface Named { start: number; level: number; medal: number; acc: number | null; id: string; name?: string; no?: number; approx?: number }
 export interface VoyageData {
   total: Int32Array; followers: Int32Array; live: Uint8Array; named: Named[];
   anchors: { total: [number, number][]; followers: [number, number][] };

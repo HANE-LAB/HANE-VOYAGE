@@ -50,7 +50,6 @@ export class Builder {
     for(let i=0;i<3;i++){ this.C.push(col[0],col[1],col[2]); this.G.push(glow||0); }
     if (ua) this.S.push(ua[0],ua[1],ub![0],ub![1],uc![0],uc![1]); else this.S.push(-1,-1,-1,-1,-1,-1);
   }
-  quad(a: Vec, b: Vec, c: Vec, d: Vec, col: Vec, glow?: number){ this.tri(a,b,c,col,glow); this.tri(a,c,d,col,glow); }
   // a triangle wound so its normal points away from `center`; closed parts need this for clean ink outlines
   triOut(a: Vec, b: Vec, c: Vec, col: Vec, glow: number | undefined, center: Vec){
     const ux=b[0]-a[0], uy=b[1]-a[1], uz=b[2]-a[2], vx=c[0]-a[0], vy=c[1]-a[1], vz=c[2]-a[2];

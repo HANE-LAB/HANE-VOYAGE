@@ -8,7 +8,8 @@ from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from . import DAY0, UID, day_of, load_json, save_json, save_text
+from . import CST, DAY0, UID, day_of, load_json, save_json, save_text
+from . import numbers as N
 from .fetch import LIVE_DAYS, NAME_MAX, clean_name, removed, snapshot_text
 
 # 已核实的数字（docs/DATA.md「已核实的数字」），页面画成白点。
@@ -248,8 +249,11 @@ def build(data: Path) -> dict:
                  "from": {"total": iso(total_from), "followers": iso(followers_from),
                           "live": iso(min(live)) if live else None}},
     }
+    # 编号：已有号的人沿用，新人接在最大号后面（voyage/numbers.py）；数据合格才一起写进去
+    reg = N.apply(N.load(data), out, datetime.now(CST).isoformat(timespec="seconds"))
     check(out)
     save_json(data / "voyage.json", out)
+    N.save(data, reg)
     return out
 
 
@@ -260,12 +264,15 @@ def check(v: dict) -> None:
           and len(v["followers"]) == n == len(v["live"])
           and all(type(x) is int and x >= 0 for x in v["total"] + v["followers"])
           and all(x in (0, 1) for x in v["live"])
-          and all(set(s) == {"start", "level", "medal", "id", "acc", "name"} and type(s["start"]) in (int, float)
+          and all(set(s) - {"no", "approx"} == {"start", "level", "medal", "id", "acc", "name"} and type(s["start"]) in (int, float)
+                  and ("no" not in s or type(s["no"]) is int and s["no"] > 0)
+                  and ("approx" not in s or s["approx"] == 1 and "no" in s)
                   and s["level"] in (1, 2, 3) and type(s["medal"]) is int and s["medal"] >= 0
                   and (s["acc"] is None or type(s["acc"]) is int and s["acc"] > 0)
                   and re.fullmatch(r"[0-9a-f]{6}", s["id"])
                   and type(s["name"]) is str and len(s["name"]) <= NAME_MAX and clean_name(s["name"]) == s["name"]
                   for s in v["named"])
+          and len({s["no"] for s in v["named"] if "no" in s}) == sum("no" in s for s in v["named"])
           and set(v["anchors"]) == {"total", "followers"}
           and all(0 <= d < n and type(x) is int for pts in v["anchors"].values() for d, x in pts)
           and all(type(a) is type(b) is int and 0 <= a <= b < n for a, b in v["meta"]["live_by_posts"]))

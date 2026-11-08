@@ -12,7 +12,8 @@ CLAUDE.local.md
 node_modules/
 dist/
 
-# 下载的原始数据和截图检查的输出
+# 下载的原始数据、带昵称的名单快照和截图检查的输出
 data/raw/
+data/guard/
 data/**/*.tmp
 dev/.sandbox/

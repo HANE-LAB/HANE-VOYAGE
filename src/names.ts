@@ -29,6 +29,11 @@ export const NAMES = DATA.named.map((n, k) => SAMPLE ? sampleName(k) : (n.name ?
 const HAS_NAMES = NAMES.some(Boolean);
 const KEY = NAMES.map(s => s.normalize('NFKC').toLowerCase());
 const IDS = DATA.named.map(n => n.id);
+// 编号 by boarding order (data/numbers.json, docs/DATA.md「编号」): 0 is none yet; 约 when the boarding day itself is guessed
+const NOS = DATA.named.map(n => n.no ?? 0), APPROX = DATA.named.map(n => !!n.approx);
+const BYNO = new Map<number, number>();
+NOS.forEach((no, k) => { if (no) BYNO.set(no, k); });
+const noText = (k: number) => NOS[k] ? `${APPROX[k] ? '约' : ''}第 ${NOS[k].toLocaleString('en-US')} 艘` : '';
 const KOF = new Int32Array(NI).fill(-1);   // instance → place in the list
 for (let k = 0; k < NN; k++) KOF[INST[k]] = k;
 const RANK = ['', '总督', '提督', '舰长'];
@@ -47,8 +52,9 @@ const esc = (s: string) => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 function about(k: number, d: number){
   const days = daysWith(k, d), when = ACC[k] < 0 ? '陪伴天数未知'
     : START[k] >= d + 1 ? '这一天还没上船' : `陪伴 ${Math.max(0, days)} 天`;
-  return NAMES[k] ? [esc(NAMES[k]) + (SAMPLE ? '<em>示意</em>' : ''), `${RANK[LEVEL[k]]} · ${when}${tierChip(days)}`]
-    : [RANK[LEVEL[k]], when + tierChip(days)];
+  const no = noText(k) ? noText(k) + ' · ' : '';
+  return NAMES[k] ? [esc(NAMES[k]) + (SAMPLE ? '<em>示意</em>' : ''), `${no}${RANK[LEVEL[k]]} · ${when}${tierChip(days)}`]
+    : [RANK[LEVEL[k]], no + when + tierChip(days)];
 }
 function tagHTML(i: number, d: number){
   const k = KOF[i];
@@ -220,7 +226,7 @@ canvas.addEventListener('pointerup', e => up(e, false));
 canvas.addEventListener('pointercancel', e => up(e, true));
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && selI > 0 && !document.body.classList.contains('cinema')) select(-1); });
 
-/* ---------- 寻舟: by name, or by UID ---------- */
+/* ---------- 寻舟: by name, by UID, or by 编号 ---------- */
 const LIMIT = 30;
 // whole names first, then those that start with it, then the rest; longer with her first within each
 function findByName(q: string){
@@ -231,6 +237,12 @@ function findByName(q: string){
   const rank = (k: number) => KEY[k] === s ? 0 : KEY[k].startsWith(s) ? 1 : 2;
   return hit.sort((a, b) => rank(a) - rank(b) || ACC[b] - ACC[a]);
 }
+// #1234, 第1234艘, No.1234 or plain digits: the ship with that number, or -1
+function byNumber(q: string){
+  const m = q.match(/^(?:#|no\.?\s*|第\s*)?(\d{1,7})\s*(?:艘|号)?$/i);
+  return m ? BYNO.get(+m[1]) ?? -1 : -1;
+}
+const noMsg = (k: number) => `这是${noText(k)}${APPROX[k] ? '，上舰日是推断的，编号是约数' : ''}`;
 let query = 0, found: number[] = [];
 function row(k: number){
   const [top, below] = about(k, day);
@@ -239,6 +251,8 @@ function row(k: number){
 async function search(){
   const q = input.value.trim(), mine = ++query;
   let ks = findByName(q), msg = '';
+  const nk = byNumber(q);
+  if (nk >= 0) ks = [nk, ...ks.filter(k => k !== nk)];   // a UID that matches comes before it (below)
   if (/^\d{1,19}$/.test(q) && BigInt(q) > 0n){
     if (!crypto.subtle) msg = '这个浏览器核对不了 UID，只能按昵称找';
     else {
@@ -247,13 +261,16 @@ async function search(){
       if (mine !== query) return;
       const byId = IDS.flatMap((x, k) => x === id ? [k] : []);
       ks = [...byId, ...ks.filter(k => !byId.includes(k))];
-      msg = byId.length ? `这是你的船${byId.length > 1 ? `（有 ${byId.length} 条船对得上，都列出来了）` : ''}。UID 只在你的设备上核对，不会上传` : '今天的名单里没有这个 UID（选了神秘人的也查不到）';
+      msg = byId.length ? `这是你的船${byId.length > 1 ? `（有 ${byId.length} 条船对得上，都列出来了）` : ''}。UID 只在你的设备上核对，不会上传`
+        : nk >= 0 ? noMsg(nk) : '今天的名单里没有这个 UID（选了神秘人的也查不到），也没有这个编号';
     }
   }
+  else if (nk >= 0) msg = noMsg(nk);
+  else if (/^(?:#|no\.?|第)\s*\d/i.test(q)) msg = '没有这个编号：编号从 2026 年 10 月 22 日的名单起，那以前就离开的人没有';
   if (mine !== query) return;
   found = ks;
   list.innerHTML = ks.slice(0, LIMIT).map(row).join('');
-  note.textContent = msg || (!q ? (HAS_NAMES ? '输入昵称，或者你的 UID' : '名单还没有昵称，可以输入 UID 找船')
+  note.textContent = msg || (!q ? (HAS_NAMES ? '输入昵称、你的 UID，或者编号（如 #1234）' : '名单还没有昵称，可以输入 UID 找船')
     : ks.length ? (ks.length > LIMIT ? `找到 ${ks.length} 条，先列出 ${LIMIT} 条` : `找到 ${ks.length} 条`) : '没有找到这个昵称');
   if (SAMPLE) note.textContent += ' · 名字是示意数据';
 }

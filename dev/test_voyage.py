@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from voyage import CST, UID, build as B, fetch as F
+from voyage import CST, UID, build as B, fetch as F, numbers as N
 from voyage.__main__ import main
 
 # 假的观众：UID 和头像不能出现在任何保存下来的文件里；昵称只存在快照和页面数据里，不打印。
@@ -542,6 +542,65 @@ class VoyageTests(unittest.TestCase):
             self.assertNotIn(secret, out.getvalue())  # 昵称存进快照和页面数据，但不打印
         for secret in ("SECRET", str(A)):
             self.assertNotIn(secret, self.saved_text())
+
+
+    def test_numbers_follow_boarding_day_and_never_change(self):
+        def fleet(days, *ships):
+            return {"total": [len(ships)] * days, "named": [{"start": s, "level": 3, "medal": 1, "id": i, "acc": a, "name": ""}
+                                                           for i, s, a in ships]}
+        # 第一次：按上舰日排，同一天按 id
+        v = fleet(10, ("bbbbbb", 8, 2), ("aaaaaa", 5, 5), ("cccccc", 8, 2))
+        reg = N.apply({"issued_at": None, "ships": []}, v, "第一次")
+        self.assertEqual({s["id"]: s["no"] for s in v["named"]}, {"aaaaaa": 1, "bbbbbb": 2, "cccccc": 3})
+        self.assertFalse(any("approx" in s for s in v["named"]))
+        # 第二天：aaaaaa 离开；dddddd 今天上舰；eeeeee 第 5 天就该在名单上却今天才看到，排在前面但标「约」；
+        # ffffff 陪伴天数未知，先不编；gggggg 的上舰日按 30 天往后挪过，也是「约」
+        v = fleet(11, ("bbbbbb", 8, 3), ("cccccc", 8, 3), ("dddddd", 10, 1), ("eeeeee", 5, 6), ("ffffff", 10, None),
+                  ("gggggg", 9, 40))
+        reg = N.apply(reg, v, "第二次")
+        got = {s["id"]: (s.get("no"), s.get("approx")) for s in v["named"]}
+        self.assertEqual(got, {"bbbbbb": (2, None), "cccccc": (3, None), "eeeeee": (4, 1), "gggggg": (5, 1),
+                               "dddddd": (6, None), "ffffff": (None, None)})
+        # aaaaaa 回来，拿回 1 号；号码只增不改，发号时间是第一次的
+        v = fleet(12, ("aaaaaa", 11, 1), ("ffffff", 10, 2))
+        reg = N.apply(reg, v, "第三次")
+        self.assertEqual([s.get("no") for s in v["named"]], [1, 7])
+        self.assertEqual(reg["issued_at"], "第一次")
+        self.assertEqual(sorted(s[1] for s in reg["ships"]), list(range(1, 8)))
+
+    def test_numbers_twins_registry_round_trip_and_check(self):
+        # 两个人 id 相同：各有一个号，都标「约」；登记簿写进文件再读回来不变
+        good = {"total": [2, 2], "followers": [1, 1], "live": [0, 0], "anchors": {"total": [], "followers": []},
+                "meta": {"live_by_posts": []},
+                "named": [{"start": 1, "level": 3, "medal": 1, "id": "abcabc", "acc": 1, "name": "甲"},
+                          {"start": 1, "level": 3, "medal": 1, "id": "abcabc", "acc": 1, "name": "乙"}]}
+        reg = N.apply(N.load(self.data), good, "发号")
+        self.assertEqual(sorted((s["no"], s["approx"]) for s in good["named"]), [(1, 1), (2, 1)])
+        B.check(good)
+        N.save(self.data, reg)
+        self.assertEqual(N.load(self.data), reg)
+        # 号码重复、approx 没有号，都不合格
+        for bad in ({**good, "named": [{**good["named"][0], "no": 1}, {**good["named"][1], "no": 1}]},
+                    {**good, "named": [{k: x for k, x in good["named"][0].items() if k != "no"} | {"approx": 1}]}):
+            with self.assertRaises(ValueError):
+                B.check(bad)
+        (self.data / N.NUMBERS).write_text('{"issued_at": null, "ships": [["abcabc", 1, 0], ["abcabc", 1, 1]]}', encoding="utf-8")
+        with self.assertRaises(ValueError):
+            N.load(self.data)
+
+    def test_number_command_numbers_the_saved_list_offline(self):
+        v = {"total": [1, 2], "followers": [1, 1], "live": [0, 0], "anchors": {"total": [], "followers": []},
+             "meta": {"live_by_posts": []},
+             "named": [{"start": 1, "level": 3, "medal": 1, "id": "bbbbbb", "acc": 1, "name": "乙"},
+                       {"start": 0, "level": 1, "medal": 9, "id": "aaaaaa", "acc": 2, "name": "甲"}]}
+        (self.data / "voyage.json").write_text(json.dumps(v, ensure_ascii=False), encoding="utf-8")
+        out = io.StringIO()
+        with patch.object(F, "get_json", Net({})), redirect_stdout(out):
+            self.assertEqual(main(["number", "--data", str(self.data)]), 0)
+        saved = json.loads((self.data / "voyage.json").read_text(encoding="utf-8"))
+        self.assertEqual({s["id"]: s["no"] for s in saved["named"]}, {"aaaaaa": 1, "bbbbbb": 2})
+        self.assertEqual([s[:2] for s in N.load(self.data)["ships"]], [["aaaaaa", 1], ["bbbbbb", 2]])
+        self.assertNotIn("甲", out.getvalue())
 
 
 if __name__ == "__main__":

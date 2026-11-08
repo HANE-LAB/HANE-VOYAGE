@@ -1,7 +1,8 @@
-"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,live,guard,build,forget,prune}"""
+"""HANE Voyage 的大航海数据：uv run python -X utf8 -m voyage {update,vtbs,live,guard,build,number,forget,prune}"""
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from collections import Counter
 from datetime import datetime
@@ -10,6 +11,7 @@ from pathlib import Path
 from . import CST, DATA
 from . import build as B
 from . import fetch as F
+from . import numbers as N
 
 
 def main(argv=None) -> int:
@@ -17,8 +19,9 @@ def main(argv=None) -> int:
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(prog="python -m voyage", description=__doc__)
-    parser.add_argument("command", choices=("update", "vtbs", "live", "guard", "build", "forget", "prune"),
+    parser.add_argument("command", choices=("update", "vtbs", "live", "guard", "build", "number", "forget", "prune"),
                         help="update 依次运行 vtbs、live、guard、build；build 只用已下载的数据，不联网；"
+                             "number 不联网，只按 data/numbers.json 给现有的 voyage.json 补上编号；"
                              "forget 把要求删掉名字的人记进删除名单；prune 给公开仓库的每日更新用：快照只留最近几天，昵称换成哈希")
     parser.add_argument("uids", nargs="*", help="forget 用：要删掉名字的人的 UID；不写就逐行输入")
     parser.add_argument("--data", type=Path, default=DATA, help="数据目录，默认 data/")
@@ -68,6 +71,18 @@ def main(argv=None) -> int:
         if "prune" in steps:
             gone, kept = B.prune(args.data)
             print(f"快照：删掉 {gone} 份，留下 {kept} 份，昵称都换成了哈希")
+        if "number" in steps:
+            path = args.data / "voyage.json"
+            v = json.loads(path.read_text(encoding="utf-8"))
+            reg = N.load(args.data)
+            before = len(reg["ships"])
+            reg = N.apply(reg, v, datetime.now(CST).isoformat(timespec="seconds"))
+            B.check(v)
+            B.save_json(path, v)
+            N.save(args.data, reg)
+            nos = [s for s in v["named"] if "no" in s]
+            print(f"编号：登记簿 {len(reg['ships'])} 个号（这次新发 {len(reg['ships']) - before} 个）；"
+                  f"今天的名单 {len(v['named'])} 人里 {len(nos)} 人有号，其中约 {sum('approx' in s for s in nos)} 人")
         if "build" in steps:
             out = B.build(args.data)
             print(f"合成 {args.data / 'voyage.json'}：{len(out['total'])} 天，名单 {len(out['named'])} 人"

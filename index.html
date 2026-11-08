@@ -47,7 +47,7 @@
   <div class="tag" id="flagTag" hidden><span>火羽ひのめ<b class="go">号</b></span><i></i></div>
   <div class="tag ship-tag" id="shipTag" aria-hidden="true"></div>
   <div class="tag ship-tag" id="hoverTag" aria-hidden="true"></div>
-  <div class="caption" id="caption" aria-live="off"><span class="c-date" id="cDate">2026.10.21</span><span class="c-sub" id="cSub">大航海 7,027</span></div>
+  <div class="caption" aria-live="off"><span class="c-date" id="cDate">2026.10.21</span><span class="c-sub" id="cSub">大航海 7,027</span></div>
   <button class="exit" id="exitCinema" type="button">退出电影模式</button>
   <div class="cutin" id="cutin" aria-hidden="true" hidden><div class="band"><div class="txt"><p><b>1,000</b><span>突破</span></p><small>大航海 · <i>2022.10.16</i></small></div></div></div>
 
@@ -59,7 +59,8 @@
       <li><span class="sw" style="background:#f2c98a"></span><div><b>左上角的数字</b><p>都是播放到的那一天的数。「大航海」是那天船上的总人数，分成两部分：「陪伴至今」是一直留到今天的人，「无名之舰」是只知道人数、不知道是谁的人，大多后来下了船。下面还数了陪伴满一个月、半年、一年的老舰长。</p></div></li>
       <li><span class="sw" style="background:var(--gold)"></span><div><b>看船认等级</b><p>舰长是一面纸帆的小船；提督多一间亮着纸窗的船屋；总督的船屋有两层，船尾插着一对朱红的旗。粉丝牌等级越高，船灯越亮。</p></div></li>
       <li><span class="sw" style="background:#ffe6b8"></span><div><b>老舰长的光柱</b><p>陪伴满一个月，桅顶会亮起一道光柱，像冬夜海上渔火照出的光。满半年、满一年会更高更亮；之后每多陪一年，再高一截，还多一圈慢慢升起的光环。</p></div></li>
-      <li><span class="sw" style="background:var(--gold)"></span><div><b>名字</b><p>陪伴一年以上的老舰长，名字一直挂在光柱顶上。其他人的名字，把鼠标停在船上或点一下船就能看到；点了船，镜头会跟过去，按「回到船队」或 Esc 回来。右上角的「寻舟」可以按昵称或 UID 找船，UID 只在你的设备上计算，不会上传。选了神秘人的舰长不在名单里。</p></div></li>
+      <li><span class="sw" style="background:var(--gold)"></span><div><b>名字</b><p>陪伴一年以上的老舰长，名字一直挂在光柱顶上。其他人的名字，把鼠标停在船上或点一下船就能看到；点了船，镜头会跟过去，按「回到船队」或 Esc 回来。右上角的「寻舟」可以按昵称、UID 或编号找船，UID 只在你的设备上计算，不会上传。选了神秘人的舰长不在名单里。</p></div></li>
+      <li><span class="sw" style="background:var(--moon)"></span><div><b>编号</b><p>名牌上的「第几艘」按上舰先后排。名单从 2026 年 10 月 22 日起每天记下，那时已在船上的人按上舰日排在前面，之后每天上舰的接在后面；同一天上舰的，直播时上舰的按时间排，其余的先后不分。前面写着「约」的，上舰日是推断的：离开过又回来的舰长，或者晚几天才出现在名单上的人。号码发出去就不再变，下船的人也留着自己的号，回来时还是这一号。10 月 22 日以前就离开的人不在名单上，没有编号。</p></div></li>
       <li><span class="sw" style="background:#e8382b"></span><div><b>写在鸟居上的名字</b><p>就像伏见稻荷的千本鸟居刻着奉纳人的名字：老舰长每多陪伴一年，名字就会和「奉納」一起写在那个月的鸟居柱上。陪得越久，写着名字的鸟居越多，字也越大，三年以上是金字。</p></div></li>
       <li><span class="sw" style="background:var(--slate)"></span><div><b>无名之舰</b><p>挂着淡蓝帆、没有纹章的小船，是那一天在船上、只知道人数不知道是谁的人。大多后来离开了，也有离开过又回来的舰长，不知道这次是哪天回来的，到最后一天才有名字。人数回升时，它们从外侧驶来，靠岸后点灯；人数下降时，最外侧的先熄灯，再慢慢驶离。舰长上船时它们也会让出泊位，所以一条船的来去，不等于有人上舰或下船。</p></div></li>
       <li><span class="sw" style="background:#b8402c"></span><div><b>海中鸟居</b><p>每到新的一个月，她船头前方就会从海里升起一座鸟居，整支船队从下面穿过。一月的鸟居更高，匾上写着年份。</p></div></li>
@@ -75,7 +76,7 @@
 
   <aside class="sheet find" id="find" hidden aria-labelledby="findTitle">
     <h2 id="findTitle">寻舟</h2>
-    <input id="findQ" type="search" placeholder="昵称或 UID" autocomplete="off" enterkeyhint="search" aria-describedby="findNote">
+    <input id="findQ" type="search" placeholder="昵称、UID 或编号" autocomplete="off" enterkeyhint="search" aria-describedby="findNote">
     <p class="find-note" id="findNote" aria-live="polite"></p>
     <ol class="find-list" id="findList"></ol>
   </aside>

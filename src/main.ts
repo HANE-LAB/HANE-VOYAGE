@@ -284,7 +284,7 @@ function poseLineup(){
   camPin.T.set(mx, y, z); camPin.C.set(mx + d*Math.sin(a), y + d*0.2, z + d*Math.cos(a)); camPin.fov = 30;
 }
 window.__fleet = { OFF, DYN, INFO, updateFleet };
-const DT_MAX = window.__dtMax || 0.05;
+const DT_MAX = 0.05;
 // they turn to watch each firework from launch; it bursts 1.7 s later (TR in src/fx.ts)
 const fwSpotWatched: typeof fwSpot = (fl, place, u, v) => { const s = fwSpot(fl, place, u, v); watchFirework(s.P, 1.7); return s; };
 let bigWas = 1;
