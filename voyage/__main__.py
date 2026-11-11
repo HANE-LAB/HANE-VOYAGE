@@ -58,6 +58,8 @@ def main(argv=None) -> int:
                   f" · 总督 {levels[1]} · 提督 {levels[2]} · 舰长 {levels[3]}"
                   + (f" · 神秘人 {r['hidden']} 位不进名单" if r["hidden"] else ""))
             if second := r["second"]:
+                if r["pages"] < r["last"]:
+                    print(f"  默认排序翻到第 {r['pages']} 页就没有新的人了，没到接口报告的 {r['last']} 页")
                 print(f"  人数过了名单上限 {F.LIST_CAP}：按陪伴天数又翻了 {second['pages']}/{second['last']} 页，"
                       f"多看到 {second['added']} 人，补上 {second['zero_fixed']} 人的陪伴天数，"
                       f"还有 {r['total'] - len(members) - r['hidden']} 人只知道人数")

@@ -323,12 +323,13 @@ def second_walk(found: dict, cookie: str, forget: frozenset | set) -> dict:
     刚上舰的人，所以合起来看不到的只有刚上舰、粉丝牌又排在最后的人。这一遍只是多看到一些人：出错就留下已经翻到的，
     名单照样存，不让每日更新停掉。它的神秘人不计：排名和默认排序的对不上，也认不出是不是同一个人。"""
     other: dict = {}
-    info = {"pages": 0, "last": 0, "added": 0, "zero_fixed": 0, "error": ""}
+    info = {"pages": 0, "last": 0, "seen": 0, "added": 0, "zero_fixed": 0, "error": ""}
     pause()
     try:
         _, info["pages"], info["last"], _ = walk_guard(other, cookie, forget, BY_ACCOMPANY)
     except (OSError, ValueError, RuntimeError) as e:  # BiliError 是 RuntimeError；限流时不重试
         info["error"] = str(e)
+    info["seen"] = len(other)
     for digest, record in other.items():
         have = found.get(digest)
         if have is None:
@@ -347,13 +348,17 @@ def crawl_guard(guard_dir: Path, now: datetime | None = None) -> dict:
     forget = removed(guard_dir.parent)
     found: dict[bytes, tuple] = {}
     num, page, last, hidden = walk_guard(found, cookie, forget)
-    # 总人数过了上限时接口给不全，翻到上限就算到头了。少于上限还是当作没翻完，那更像接口出了问题。
-    capped = page >= last and num > LIST_CAP and len(found) + len(hidden) >= LIST_CAP * 0.99
-    second = second_walk(found, cookie, forget) if capped else None
+    first = len(found) + len(hidden)
+    # 总人数过了上限时接口给不全，翻到上限就算到头了。2026-11-10 起默认排序只给到第 9919 名左右，后面几页是空的，
+    # 接口却还报告 334 页，所以这里不要求翻到报告的最后一页，只看人数：默认排序取到上限的九成就再翻一遍按陪伴天数的。
+    over = num > LIST_CAP and first >= LIST_CAP * 0.9
+    second = second_walk(found, cookie, forget) if over else None
     seen = len(found) + len(hidden)
+    # 两遍里至少一遍到了上限的 99% 才算到头；都差得多还是当作没翻完，那更像接口出了问题。
+    capped = over and max(first, second["seen"]) >= LIST_CAP * 0.99
     # 翻到最后一页、人数也对得上才算完整：抓取期间有人进出，多收少收都只允许差 1%。总数是 0 时不存，那更像接口出了
     # 问题；2026-10-24 以前只查少收，「成功」但空的名单也会存下来，build 后最后一天变成 0 人、名单清空。
-    complete = page >= last and num > 0 and (abs(seen - num) <= num * 0.01 or (capped and seen <= num * 1.01))
+    complete = num > 0 and ((page >= last and abs(seen - num) <= num * 0.01) or (capped and seen <= num * 1.01))
     members = sorted(found.values())
     result = {"total": num, "pages": page, "last": last, "complete": complete, "members": members,
               "hidden": len(hidden), "second": second, "file": None}

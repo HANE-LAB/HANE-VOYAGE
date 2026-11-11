@@ -287,6 +287,26 @@ class VoyageTests(unittest.TestCase):
         snap = json.loads(r["file"].read_text(encoding="utf-8"))
         self.assertEqual((snap["total"], len(snap["members"])), (5, 4))  # 总数还是 B 站给的，build 把差的算成无名之舰
 
+    def test_default_order_ending_before_the_ceiling_still_walks_the_accompany_order(self):
+        # 2026-11-10 起默认排序只给到第 9919 名：后面的页只剩重复的前三名，接口还报告到 334 页。上限这里是 10：
+        # 默认排序取到 9 人（九成）就停，按陪伴天数取满 10 人，合起来 11 人，总数 12，算完整。
+        ps = [person(3546000000001000 + i, 3, 21, 5 + i, f"假名{i}", rank=i + 1) for i in range(12)]
+        routes = {"typ=1": page(12, 1, top3=ps[:3], rows=ps[3:8] + ps[9:11]),
+                  "page=1&": page(12, 3, top3=ps[:3], rows=ps[3:9]),
+                  "page=2&": page(12, 3, top3=ps[:3])}
+        net = Net(routes)
+        with patch.object(F, "LIST_CAP", 10), patch.object(F, "get_json", net):
+            r = F.crawl_guard(self.data / "guard", now=datetime(2021, 2, 10, 20, 30, tzinfo=CST))
+        self.assertEqual((r["pages"], r["last"], r["second"]["seen"], r["second"]["added"]), (2, 3, 10, 2))
+        self.assertTrue(r["complete"])
+        self.assertEqual(len(r["members"]), 11)
+        self.assertTrue(r["file"].exists())
+        # 两遍都没到上限的 99% 时还是不存
+        r["file"].unlink()
+        routes["typ=1"] = page(12, 1, top3=ps[:3], rows=ps[3:9])
+        with patch.object(F, "LIST_CAP", 10):
+            self.assertFalse(self.crawl(routes)["complete"])
+
     def test_second_order_failing_still_saves_the_default_list(self):
         for name, second in {"限流": {"code": -352, "message": "风控校验失败"},
                              "这个排序没了": page(0, 1)}.items():
