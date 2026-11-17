@@ -28,7 +28,7 @@ Windows 上第一次构建要编译全部 Rust 依赖，约需 10 到 20 分钟�
 
 公开仓库每天日本时间 03:00（UTC 18:00）运行 [update-data.yml](../.github/workflows/update-data.yml)：
 
-- 取 vtbs.moe 的每日人数和粉丝数、Danmakus 的开播记录和上舰记录，翻当前的大航海名单（人数过万时按两种排序各翻一遍，见[名单的上限](DATA.md#名单的上限)）。
+- 取 vtbs.moe 的每日人数和粉丝数、Danmakus 的开播记录和上舰记录，翻当前的大航海名单（默认排序没收全或人数过万时按两种排序各翻一遍，见[名单的上限](DATA.md#名单的上限)）。
 - 合成 `data/voyage.json`、给新人编号，提交到 `main`，再触发建站。
 - 不用登录，不需要配置 Cookie。
 - 想立刻更新：在 Actions 里对「每日更新大航海数据」点 Run workflow。

@@ -258,9 +258,10 @@ class VoyageTests(unittest.TestCase):
             self.crawl({"page=1&": page(1, 1, rows=[{"accompany": 3, "uinfo": {"uid": A, "base": {"name": "假名甲"}}}])})
         self.assertNotIn(str(A), str(caught.exception))
         self.assertNotIn("假名", str(caught.exception))
-        for name, routes in {"不给更深的页": {"page=1&": page(2, 2, rows=[a]), "page=2&": page(2, 2)},
-                             "分页没有前进": {"page=1&": page(2, 2, rows=[a]), "page=2&": page(2, 2, rows=[a])},
-                             "人数对不上": {"page=1&": page(5, 1, rows=[a, b])},
+        # 默认排序没收全时会再按陪伴天数翻一遍（typ=1），这里那一遍也没收全
+        for name, routes in {"不给更深的页": {"typ=1": page(2, 2, rows=[a]), "page=1&": page(2, 2, rows=[a]), "page=2&": page(2, 2)},
+                             "分页没有前进": {"typ=1": page(2, 2, rows=[a]), "page=1&": page(2, 2, rows=[a]), "page=2&": page(2, 2, rows=[a])},
+                             "人数对不上": {"typ=1": page(5, 1, rows=[b]), "page=1&": page(5, 1, rows=[a, b])},
                              "收到的比总数多": {"page=1&": page(1, 1, top3=FLEET[:1], rows=FLEET[1:])},
                              "成功但名单是空的": {"page=1&": page(0, 0)}}.items():
             with self.subTest(name):
@@ -287,9 +288,36 @@ class VoyageTests(unittest.TestCase):
         snap = json.loads(r["file"].read_text(encoding="utf-8"))
         self.assertEqual((snap["total"], len(snap["members"])), (5, 4))  # 总数还是 B 站给的，build 把差的算成无名之舰
 
+    def test_default_order_short_below_the_ceiling_is_completed_by_the_accompany_order(self):
+        # 2026-11-10 起默认排序只给八成多的人：总数 6768 时到第 5982 名就没有了，后面的页只剩重复的前三名，
+        # 接口还报告 226 页；按陪伴天数给到第 6768 名。这里总数 10，默认排序给 8 人，按陪伴天数给全 10 人。
+        ps = [person(3546000000002000 + i, 3, 21, 30 - i, f"假名{i}", rank=i + 1) for i in range(10)]
+        ps[4] = person(3546000000002004, 3, 21, 0, "假名4", rank=5)  # 默认排序给了 0 天
+        routes = {"typ=1": page(10, 1, top3=ps[:3], rows=[person(3546000000002004, 3, 21, 26, "假名4")] + ps[3:4] + ps[5:]),
+                  "page=1&": page(10, 4, top3=ps[:3], rows=ps[3:6]),
+                  "page=2&": page(10, 4, top3=ps[:3], rows=ps[6:8]),
+                  "page=3&": page(10, 4, top3=ps[:3])}
+        net = Net(routes)
+        with patch.object(F, "get_json", net):
+            r = F.crawl_guard(self.data / "guard", now=datetime(2021, 2, 10, 20, 30, tzinfo=CST))
+        self.assertTrue(r["complete"])
+        self.assertEqual((r["pages"], r["last"], r["first"]), (3, 4, 8))
+        self.assertEqual({k: r["second"][k] for k in ("seen", "added", "added_days", "zero_fixed", "error")},
+                         {"seen": 10, "added": 2, "added_days": (21, 22, 22), "zero_fixed": 1, "error": ""})
+        self.assertEqual(len(r["members"]), 10)
+        self.assertEqual({m[0]: m[3] for m in r["members"]}[F.uid_digest(3546000000002004)[:3].hex()], 26)
+        self.assertTrue(r["file"].exists())
+        # 按陪伴天数那一遍出错、合起来还差得多时不存：没过上限就该收全
+        r["file"].unlink()
+        routes["typ=1"] = {"code": -352, "message": "风控校验失败"}
+        r = self.crawl(routes)
+        self.assertFalse(r["complete"])
+        self.assertIn("风控", r["second"]["error"])
+        self.assertFalse(any((self.data / "guard").glob("*.json")))
+
     def test_default_order_ending_before_the_ceiling_still_walks_the_accompany_order(self):
-        # 2026-11-10 起默认排序只给到第 9919 名：后面的页只剩重复的前三名，接口还报告到 334 页。上限这里是 10：
-        # 默认排序取到 9 人（九成）就停，按陪伴天数取满 10 人，合起来 11 人，总数 12，算完整。
+        # 人数过了上限、默认排序又只给八成多（2026-11-10 总数 11258 时到第 9919 名就没有了，接口还报告到 334 页）。
+        # 上限这里是 10：默认排序取到 9 人就停，按陪伴天数取满 10 人，合起来 11 人，总数 12，算完整。
         ps = [person(3546000000001000 + i, 3, 21, 5 + i, f"假名{i}", rank=i + 1) for i in range(12)]
         routes = {"typ=1": page(12, 1, top3=ps[:3], rows=ps[3:8] + ps[9:11]),
                   "page=1&": page(12, 3, top3=ps[:3], rows=ps[3:9]),
@@ -328,7 +356,7 @@ class VoyageTests(unittest.TestCase):
     def test_short_or_overfull_lists_at_the_ceiling_save_nothing(self):
         a, b, c = FLEET
         d, e = person(3546000000000888, 3, 2, 1, "假名丁"), person(3546000000000999, 3, 2, 1, "假名戊")
-        for name, routes in {"翻到头也不到上限": {"page=1&": page(9, 1, top3=[a], rows=[b])},
+        for name, routes in {"翻到头也不到上限": {"typ=1": page(9, 1, top3=[a], rows=[c]), "page=1&": page(9, 1, top3=[a], rows=[b])},
                              "两遍合起来比总数多": {"typ=1": page(4, 1, top3=[d], rows=[e]), "page=1&": page(4, 1, top3=[a], rows=[b, c])}}.items():
             with self.subTest(name), patch.object(F, "LIST_CAP", 3):
                 self.assertFalse(self.crawl(routes)["complete"])

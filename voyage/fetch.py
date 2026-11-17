@@ -319,25 +319,31 @@ def walk_guard(found: dict, cookie: str, forget: frozenset | set, typ: int | Non
 
 
 def second_walk(found: dict, cookie: str, forget: frozenset | set) -> dict:
-    """人数过了上限：按陪伴天数再翻一遍，并进 found。默认排序的末尾是粉丝牌最低的舰长，不分上舰早晚；这一种的末尾是
-    刚上舰的人，所以合起来看不到的只有刚上舰、粉丝牌又排在最后的人。这一遍只是多看到一些人：出错就留下已经翻到的，
-    名单照样存，不让每日更新停掉。它的神秘人不计：排名和默认排序的对不上，也认不出是不是同一个人。"""
+    """默认排序没收全：按陪伴天数再翻一遍，并进 found。2026-11-10 起默认排序只给八成多的人，这一种给得全；人数过万时
+    两种都只给到第 9999 名，默认排序的末尾是粉丝牌最低的舰长，不分上舰早晚，这一种的末尾是刚上舰的人，所以合起来看不到的
+    只有刚上舰、粉丝牌又排在最后的人。出错就留下已经翻到的，合起来够不够由 crawl_guard 判断。
+    它的神秘人不计：排名和默认排序的对不上，也认不出是不是同一个人。"""
     other: dict = {}
-    info = {"pages": 0, "last": 0, "seen": 0, "added": 0, "zero_fixed": 0, "error": ""}
+    info = {"pages": 0, "last": 0, "seen": 0, "added": 0, "added_days": None, "zero_fixed": 0, "error": ""}
     pause()
     try:
         _, info["pages"], info["last"], _ = walk_guard(other, cookie, forget, BY_ACCOMPANY)
     except (OSError, ValueError, RuntimeError) as e:  # BiliError 是 RuntimeError；限流时不重试
         info["error"] = str(e)
     info["seen"] = len(other)
+    days = []
     for digest, record in other.items():
         have = found.get(digest)
         if have is None:
             found[digest] = record
-            info["added"] += 1
+            days.append(record[3])
         elif have[3] == 0 and record[3] > 0:  # B 站每次给一部分人返回 0 天，另一遍给了正值就用它
             found[digest] = record
             info["zero_fixed"] += 1
+    info["added"] = len(days)
+    if days:  # 只在默认排序里缺的人陪伴多久：最短、中位、最长，用来看 B 站漏的是哪些人
+        days.sort()
+        info["added_days"] = (days[0], days[len(days) // 2], days[-1])
     return info
 
 
@@ -349,18 +355,17 @@ def crawl_guard(guard_dir: Path, now: datetime | None = None) -> dict:
     found: dict[bytes, tuple] = {}
     num, page, last, hidden = walk_guard(found, cookie, forget)
     first = len(found) + len(hidden)
-    # 总人数过了上限时接口给不全，翻到上限就算到头了。2026-11-10 起默认排序只给到第 9919 名左右，后面几页是空的，
-    # 接口却还报告 334 页，所以这里不要求翻到报告的最后一页，只看人数：默认排序取到上限的九成就再翻一遍按陪伴天数的。
-    over = num > LIST_CAP and first >= LIST_CAP * 0.9
-    second = second_walk(found, cookie, forget) if over else None
+    # 默认排序没收全就按陪伴天数再翻一遍。2026-11-10 起默认排序只给八成多的人，后面的页只剩重复的前三名，接口却还按
+    # 总数报告页数；人数过万时每种排序也都只给到第 9999 名。
+    second = second_walk(found, cookie, forget) if num > 0 and first < num * 0.99 else None
     seen = len(found) + len(hidden)
-    # 两遍里至少一遍到了上限的 99% 才算到头；都差得多还是当作没翻完，那更像接口出了问题。
-    capped = over and max(first, second["seen"]) >= LIST_CAP * 0.99
-    # 翻到最后一页、人数也对得上才算完整：抓取期间有人进出，多收少收都只允许差 1%。总数是 0 时不存，那更像接口出了
-    # 问题；2026-10-24 以前只查少收，「成功」但空的名单也会存下来，build 后最后一天变成 0 人、名单清空。
-    complete = num > 0 and ((page >= last and abs(seen - num) <= num * 0.01) or (capped and seen <= num * 1.01))
+    # 人数过了上限时接口给不全，两遍里有一遍取到上限的 99% 就算到头；都差得多还是当作没翻完，那更像接口出了问题。
+    capped = num > LIST_CAP and max(first, second["seen"] if second else 0) >= LIST_CAP * 0.99
+    # 人数对得上才算完整：抓取期间有人进出，多收少收都只允许差 1%。总数是 0 时不存，那更像接口出了问题；2026-10-24
+    # 以前只查少收，「成功」但空的名单也会存下来，build 后最后一天变成 0 人、名单清空。
+    complete = num > 0 and seen <= num * 1.01 and (seen >= num * 0.99 or capped)
     members = sorted(found.values())
-    result = {"total": num, "pages": page, "last": last, "complete": complete, "members": members,
+    result = {"total": num, "pages": page, "last": last, "first": first, "complete": complete, "members": members,
               "hidden": len(hidden), "second": second, "file": None}
     if complete:
         day = (when.date() - DAY0).days
